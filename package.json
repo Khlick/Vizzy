@@ -1,18 +1,23 @@
 {
   "name": "vizzy",
   "version": "1.0.0",
-  "main": "dist/vizzy.js",
+  "main": "dist/index.js",
   "scripts": {
-    "build": "webpack --mode production",
-    "start": "webpack serve --mode development"
+    "build": "babel src --out-dir dist --presets @babel/preset-env",
+    "build:es6": "babel src --out-dir dist/es6",
+    "build:es5": "babel src --out-dir dist/es5 --presets @babel/preset-env"
   },
-  "dependencies": {},
   "devDependencies": {
-    "@babel/core": "^7.14.6",
-    "@babel/preset-env": "^7.14.5",
+    "@babel/cli": "^7.24.6",
+    "@babel/core": "^7.24.6",
+    "@babel/preset-env": "^7.24.6",
     "babel-loader": "^8.2.2",
     "webpack": "^5.38.1",
     "webpack-cli": "^4.7.2",
     "webpack-dev-server": "^3.11.2"
-  }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
 }
