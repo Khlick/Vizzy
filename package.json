@@ -1,27 +1,32 @@
 {
   "name": "vizzy",
   "version": "1.0.0",
-  "description": "A Reveal.js plugin for visualizations",
-  "main": "dist/index.js",
+  "description": "A Reveal.js plugin to enhance iframe interactions and support PDF printing with transitions.",
+  "main": "dist/vizzy.es5.js",
+  "module": "dist/vizzy.es6.js",
   "scripts": {
-    "build": "babel src --out-dir dist --presets @babel/preset-env",
-    "build:es6": "babel src --out-dir dist/es6",
-    "build:es5": "babel src --out-dir dist/es5 --presets @babel/preset-env",
+    "build:es6": "babel src/vizzy.js -o dist/vizzy.es6.js --presets=@babel/preset-env",
+    "build:es5": "babel src/vizzy.js -o dist/vizzy.es5.js --presets=@babel/preset-env --plugins=@babel/plugin-transform-modules-commonjs",
+    "build": "npm run build:es6 && npm run build:es5",
     "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR_GITHUB_USERNAME/vizzy.git"
+    "url": "https://github.com/Khlick/Vizzy.git"
   },
-  "author": "Your Name",
+  "keywords": [
+    "reveal.js",
+    "plugin",
+    "iframe",
+    "transitions",
+    "pdf"
+  ],
+  "author": "Khris Griffis, Ph.D.",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/YOUR_GITHUB_USERNAME/vizzy/issues"
-  },
-  "homepage": "https://github.com/YOUR_GITHUB_USERNAME/vizzy#readme",
   "devDependencies": {
-    "@babel/cli": "^7.14.5",
-    "@babel/core": "^7.14.6",
-    "@babel/preset-env": "^7.14.5"
+    "@babel/cli": "^7.13.16",
+    "@babel/core": "^7.14.0",
+    "@babel/preset-env": "^7.14.1",
+    "@babel/plugin-transform-modules-commonjs": "^7.14.0"
   }
 }

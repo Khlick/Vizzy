@@ -1,4 +1,4 @@
-name: Publish Vizzy as Node.js Package
+name: Publish Vizzy As Node.js Package
 
 on:
   push:
@@ -22,15 +22,20 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
+    - name: Install npm@latest
+      run: npm install -g npm@latest
+
     - name: Install dependencies
       run: npm install
 
-    - name: Build the project
-      run: npm run build
+    - name: Build ES6 version
+      run: npm run build:es6
+
+    - name: Build ES5 version
+      run: npm run build:es5
 
     - name: Check if publishing is enabled
-      id: publish-check
-      run: echo "PUBLISH_ENABLED=${{ secrets.PUBLISH_ENABLED }}" > $GITHUB_ENV
+      run: echo "PUBLISH_ENABLED=${{ secrets.PUBLISH_ENABLED }}" >> $GITHUB_ENV
 
     - name: Publish to npm
       if: env.PUBLISH_ENABLED == 'true'
