@@ -1,32 +1,31 @@
 {
   "name": "vizzy",
   "version": "1.0.0",
-  "description": "A Reveal.js plugin to enhance iframe interactions and support PDF printing with transitions.",
-  "main": "dist/vizzy.es5.js",
-  "module": "dist/vizzy.es6.js",
+  "description": "A Reveal.js plugin to integrate and interact with external pages.",
+  "main": "dist/vizzy.js",
+  "module": "dist/vizzy.esm.js",
   "scripts": {
-    "build:es6": "babel src/vizzy.js -o dist/vizzy.es6.js --presets=@babel/preset-env",
-    "build:es5": "babel src/vizzy.js -o dist/vizzy.es5.js --presets=@babel/preset-env --plugins=@babel/plugin-transform-modules-commonjs",
-    "build": "npm run build:es6 && npm run build:es5",
-    "prepublishOnly": "npm run build"
+    "build": "gulp build:vizzy",
+    "copy": "gulp copy:dist",
+    "default": "gulp",
+    "prepublishOnly": "npm run build && npm run copy"
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Khlick/Vizzy.git"
-  },
-  "keywords": [
-    "reveal.js",
-    "plugin",
-    "iframe",
-    "transitions",
-    "pdf"
-  ],
-  "author": "Khris Griffis, Ph.D.",
-  "license": "MIT",
   "devDependencies": {
-    "@babel/cli": "^7.13.16",
-    "@babel/core": "^7.14.0",
-    "@babel/preset-env": "^7.14.1",
-    "@babel/plugin-transform-modules-commonjs": "^7.14.0"
+    "@babel/core": "^7.24.7",
+    "@babel/plugin-transform-modules-commonjs": "^7.24.7",
+    "@babel/preset-env": "^7.24.7",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "babel-plugin-transform-html-import-to-string": "^2.0.0",
+    "core-js": "^3.37.1",
+    "del": "^7.1.0",
+    "gulp": "^5.0.0",
+    "gulp-babel": "^8.0.0",
+    "gulp-rename": "^2.0.0",
+    "rimraf": "^5.0.7",
+    "rollup": "^2.79.1",
+    "rollup-plugin-babel": "^4.4.0",
+    "rollup-plugin-terser": "^7.0.2"
   }
 }

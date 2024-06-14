@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.axisWhite line{
+  stroke: black;
+}
+
+.axisWhite path{
+  stroke: black;
+}
+
+.axisWhite text{
+  fill: black;
+} 
+
+</style>
+<script src="js/d3.v4.min.js"></script>
+<body>
+
+
+<script>
+const data = [
+  {name: 'Alice', math: 45,   science: 62,   language: 54},
+  {name: 'Billy', math: null, science: 34,   language: 85},
+  {name: 'Cindy', math: 86,   science: 48,   language: null},
+  {name: 'David', math: 44,   science: null, language: 65},
+  {name: 'Emily', math: 59,   science: 73,   language: 29}
+];
+
+
+const margin = { top: 10, right: 10, bottom: 30, left: 50 };
+const width = 400 - margin.left - margin.right;
+const height = 300 - margin.top - margin.bottom;
+
+
+const svg = d3.select('body')
+  .append('svg')
+    .attr('width', width + margin.left + margin.right)
+    .attr('height', height + margin.top + margin.bottom)
+  .append('g')
+    .attr('transform', `translate(${margin.left}, ${margin.top})`);
+
+
+const xScale = d3.scaleBand()
+  .domain(data.map(d => d.name))
+  .range([0, width])
+  .padding(0.2);
+svg
+  .append('g')
+    .attr('transform', `translate(0, ${height})`)
+    .attr("class", "axisWhite")
+  .call(d3.axisBottom(xScale))
+  .selectAll("text")
+      .style("text-anchor", "middle")
+      .style("font-size","2.2em")
+      .style("font-family", "Raleway")
+      .style("fill","black");
+
+const yScale = d3.scaleLinear()
+  .domain([0, 100])
+  .range([height, 0]);
+
+svg
+  .append('g')
+  .attr("class", "axisWhite")
+  .call(d3.axisLeft(yScale))
+  .selectAll("text")
+      .style("text-anchor", "right")
+      .style("font-size","1.5em")
+      .style("font-family", "Raleway")
+      .style("fill","black");
+
+
+function render (subject = 'math') {
+  const update = svg.selectAll('rect')
+    // .data(data.filter(d => d[subject]), d => d.name); //filter out name with no data
+    .data(data); // add all the data even if zero. Needed for transition
+
+  update.exit()
+    .remove();
+
+  update
+    .transition() // NEW
+    .duration(500) // Also NEW
+    .attr('y', d => yScale(d[subject]))
+    .attr('height', d => height - yScale(d[subject]));
+
+
+  update
+    .enter()
+    .append('rect')
+    .style('fill', '#9BE7FF')
+    .attr('x', d => xScale(d.name))
+    .attr('width', d => xScale.bandwidth())
+    .attr('y', d => yScale(d[subject]))
+    .attr('height', d => height - yScale(d[subject]));
+
+}
+
+render();
+
+// For Vizzy,
+// assign to global scope, same as window._fragments =
+var _fragments = [
+      {
+        activate: () => render("science"),
+        reverse: () => render("math"),
+        index: 1
+      },
+      {
+        activate: () => render("language"),
+        reverse: () => render("science"),
+        index: 2
+      }
+    ];
+
+</script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Reveal.js - ES5 Vizzy Presentation</title>
+    <link rel="stylesheet" href="https://unpkg.com/reveal.js/dist/reveal.css">
+    <link rel="stylesheet" href="https://unpkg.com/reveal.js/dist/theme/white.css">
+    <script>
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.type = 'text/css';
+        link.href = window.location.search.match(/print-pdf/gi) ? 'https://unpkg.com/reveal.js/css/print/pdf.css' : 'https://unpkg.com/reveal.js/css/print/paper.css';
+        document.getElementsByTagName('head')[0].appendChild(link);
+    </script>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <section>
+                <h2>Slide 1</h2>
+                <p>This is the first slide.</p>
+            </section>
+            <section>
+                <div class="fig-container" data-file="lib/visualizations/collision-detection.html"></div>
+            </section>
+            <section class="fig-container" data-file="lib/visualizations/collision-detection.html">
+                <h2>Background Visualization</h2>
+                <p>This slide has a background visualization.</p>
+            </section>
+        </div>
+    </div>
+    <script src="https://unpkg.com/reveal.js/dist/reveal.js"></script>
+    <script src="vizzy.es5.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const vizzy = new Vizzy({
+                transitionDuration: 500,
+                autoRunTransitions: true
+            });
+            Reveal.initialize({
+                plugins: [vizzy]
+            });
+        });
+    </script>
+</body>
+</html>

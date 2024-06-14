@@ -1,4 +1,4 @@
-name: Publish Vizzy As Node.js Package
+name: Publish Vizzy To NPM
 
 on:
   push:
@@ -8,37 +8,31 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    
     strategy:
       matrix:
-        node-version: [14.x, 16.x]
-
+        node-version: [14.x, 16.x, 18.x]
+    
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v2
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: ${{ matrix.node-version }}
 
-    - name: Install npm@latest
-      run: npm install -g npm@latest
+      - name: Install dependencies
+        run: npm install
 
-    - name: Install dependencies
-      run: npm install
+      - name: Build Vizzy plugin
+        run: npm run build
 
-    - name: Build ES6 version
-      run: npm run build:es6
+      - name: Check if publishing is enabled
+        run: echo "PUBLISH_ENABLED=${{ secrets.PUBLISH_ENABLED }}" >> $GITHUB_ENV
 
-    - name: Build ES5 version
-      run: npm run build:es5
-
-    - name: Check if publishing is enabled
-      run: echo "PUBLISH_ENABLED=${{ secrets.PUBLISH_ENABLED }}" >> $GITHUB_ENV
-
-    - name: Publish to npm
-      if: env.PUBLISH_ENABLED == 'true'
-      run: npm publish
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish to npm
+        if: env.PUBLISH_ENABLED == 'true'
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
