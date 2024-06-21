@@ -84,4 +84,4 @@ gulp.task('copy:dist', () => {
 });
 
 // Default task: clean, build, and copy the files
-gulp.task('default', gulp.series('build:vizzy', 'copy:dist'));
+gulp.task('default', gulp.series('build:vizzy'));
