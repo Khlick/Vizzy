@@ -80,7 +80,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
 
-    # Define the environment for this job
+    # Use publish rules for custom control flags
     environment: publish-rules
     
     permissions:
