@@ -52,9 +52,9 @@ jobs:
         run: npm run build
 
       - name: Set up Ruby
-        uses: actions/setup-ruby@v1
+        uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '2.7'
+          ruby-version: '3.3'
 
       - name: Install github_changelog_generator
         run: gem install github_changelog_generator
