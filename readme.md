@@ -23,7 +23,7 @@ Vizzy is based on the reveal.js-d3 and reveal.js-d3js plugins, incorporating sim
 Install Vizzy via npm:
 
 ```sh
-npm install vizzy
+npm install vizzy-reveal
 ```
 
 ## Usage
@@ -46,20 +46,9 @@ Add the Vizzy plugin to your Reveal.js presentation:
   <div class="reveal">
     <div class="slides">
       <section>
-        <h2>Slide 1</h2>
-        <p>This is the first slide.</p>
-      </section>
-      <section>
-        <h2>This is a second slide</h2>
+        <h2>A Vizzy Slide!</h2>
         <p class="fragment" data-fragment-index="1">With fragments!</p>
         <vizzy data-src="lib/visualizations/collision-detection.html" style="height:600px;"></vizzy>
-      </section>
-      <section>
-        <h2>This is a third slide</h2>
-        <div>
-          <p>Some content here.</p>
-          <p>$\bar{x} = \frac{1}{N}\sum_{i=0}^{N}x_i$</p>
-        </div>
       </section>
     </div>
   </div>
@@ -74,7 +63,7 @@ Add the Vizzy plugin to your Reveal.js presentation:
 
 ### Adding Vizzy Elements
 
-You can add Vizzy elements to your slides using the `<vizzy>` tag. Set the `data-src` attribute to the URL of the content you want to embed.
+You can add Vizzy elements to your slides using the `<vizzy>` tag. Set the `data-src` attribute to the URL of the content you want to embed. Customize the vizzy element like you would a `div` element, adding classes or styles.
 
 ```html
 <section>
@@ -83,9 +72,51 @@ You can add Vizzy elements to your slides using the `<vizzy>` tag. Set the `data
 </section>
 ```
 
+The plugin will inject the following css into the document head (future iterations will use the shadow dom). You may use inline styles, or custom css classes/ids to restyle your elements. The main point here is to ensure the embedded iframe fills the vizzy element. Typically, you might define a specific size for the vizzy element, or place it in an element whose dimensions are calculated/static. Note the css selectors are specific enough to override reveal's default iframe styling, but not so specific to make it impossible to generalize your own css.
+
+```html
+<style>
+  vizzy {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+  .reveal vizzy iframe {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height:100%;
+    z-index: 1;
+    border: 0;
+    overflow: hidden;
+  }
+</style>
+```
+
+You may add custom inline styles or set other attributes directly on the embedded iframe by using the `data-` prefix on the vizzy element. For example, to set the `scrolling` attribute on the embedded iframe to `'no'`, you may use `data-scrolling="no"` on the vizzy element.
+
+```html
+<section>
+  <h2>Embed a Website in an Iframe</h2>
+  <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
+    <div class="grid-item" style="width:400px;">
+      <vizzy data-src="https://khrisgriffis.com" style="height:428px;" data-scrolling="no"></vizzy>
+    </div>
+    <div class="grid-item" style="width:400px;">
+      <vizzy data-src="https://khrisgriffis.com" style="height:428px;" ></vizzy>
+    </div>
+  </div>
+</section>
+```
+
+
 ### Using Fragments with Vizzy
 
-You can use fragments to create step-by-step transitions within your Vizzy iframes. Define the `_fragments` array in your iframe content.
+You can use fragments to create step-by-step transitions within your Vizzy iframes. Define the `_fragments` array in your iframe content. _Note: You may also define the _fragments object in the global scope with `var`._
 
 ```html
 <!-- collision-detection.html -->
@@ -119,7 +150,7 @@ You can use fragments to create step-by-step transitions within your Vizzy ifram
 
 ## Configuration
 
-You can configure Vizzy by passing options to the plugin:
+You can configure Vizzy by passing options to the plugin during the `Reveal.initialize()` method, as shown below.
 
 ```javascript
 Reveal.initialize({
@@ -133,6 +164,18 @@ Reveal.initialize({
 });
 ```
 
+### Options
+
+| Option               | Type    | Default | Description                                                                                                                                 |
+|----------------------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| `autoRunTransitions` | Boolean | `false` | If set to `true`, Vizzy will automatically run all transitions on a slide when navigating backwards and when in `print` mode.                                         |
+| `autoTransitionDelay`| Number  | `100`   | The delay in milliseconds between each automatic transition. This delay helps to control the speed of the transitions.                       |
+| `devMode`            | Boolean | `false` | Enables development mode which provides additional logging and debugging information in the console.                                          |
+| `onSlideChangedDelay`| Number  | `0`     | The delay in milliseconds before handling a slide change. This delay can be useful for ensuring that all content is fully loaded before running transitions on vizzies. |
+
+These configuration options give you control over the behavior and performance of Vizzy in your Reveal.js presentations. Adjust the settings according to your needs to create a smooth and interactive presentation experience.
+
+
 ## License
 
-This project is licensed under the (MIT License)[./LICENSE].
+This project is licensed under the [MIT License](LICENSE).
