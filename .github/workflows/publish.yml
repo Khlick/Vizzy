@@ -25,17 +25,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Vizzy plugin
-        run: npm run build
-
       - name: Check if publishing is enabled
-        run: echo "PUBLISH_ENABLED=${{ vars.PUBLISH_ENABLED }}" >> $GITHUB_ENV
-
-      - name: Debug Environment Variables
-        run: env
+        run: echo "PUBLISH_ENABLED=true" >> $GITHUB_ENV
 
       - name: Publish to npm
-        if: env.PUBLISH_ENABLED == 'true'
+        if: ${{ env.PUBLISH_ENABLED == 'true' }}
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
