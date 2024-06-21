@@ -8,7 +8,7 @@ class Plugin {
     // Set default configurations and merge with user-provided config
     this.id = "Vizzy";
     this.config = {
-      autoRunTransitions: config.autoRunTransitions || false,
+      autoRunTransitions: config.autoRunTransitions || true,
       autoTransitionDelay: config.autoTransitionDelay || 100,
       onSlideChangedDelay: config.onSlideChangedDelay || 0,
       devMode: config.devMode || false,
@@ -580,7 +580,7 @@ class Plugin {
   // Setup keydown event listener on iframes. When constructing iframes, we need to propagate a keydown on the iframe.
   setupKeydownEventListener() {
     this.log('Setting up keydown propagation from iframe to parent', 'setupKeydownPropagation');
-    window.addEventListener('iframe-keydown', (event) => {
+    window.document.addEventListener('iframe-keydown', (event) => {
       this.Reveal.triggerKey(event.detail.keyCode);
       this.log(`Propagated keydown event: keyCode ${event.detail.keyCode}`, 'setupKeydownPropagation');
     }, false);

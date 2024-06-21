@@ -47,12 +47,11 @@ class VizFrame {
     // Event listener for propagating keydown events
     iframe.addEventListener('load', () => {
       this.loaded = true;
-      const iframeWindow = iframe.contentWindow || iframe.contentDocument;
+      const iframeWindow = (iframe.contentWindow || iframe.contentDocument);
       try {
         iframeWindow.addEventListener('keydown', (event) => {
           const customEvent = new CustomEvent('iframe-keydown', { detail: event });
-          window.parent.dispatchEvent(customEvent); // send to parent window
-          Reveal.layout();
+          window.parent.document.dispatchEvent(customEvent); // send to parent window
         });
       } catch (e) {
         this.log(`Error accessing iframe window for ${this.src}: ${e.message}`, 'createIframe');
@@ -98,9 +97,10 @@ class VizFrame {
       setTimeout(() => {
         this.show();
         // Check if the iframe is cross-origin
+        const iframeWindow = (this.iframe.contentWindow || this.iframe.contentDocument);
         try {
-          if (this.iframe.contentWindow) {
-            this.iframe.contentWindow.location.reload();
+          if (iframeWindow) {
+            iframeWindow.location.reload();
           } else {
             throw new Error('Cross-origin iframe or inaccessible contentWindow');
           }

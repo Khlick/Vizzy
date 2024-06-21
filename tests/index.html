@@ -127,13 +127,16 @@ window._fragments = [
           <h2>Working with websites</h2>
           <p>Vizzies can hold any web address.</p>
         </section>
-        <section data-background-vizzy="http://khrisgriffis.com">
+        <section data-background-vizzy="https://khrisgriffis.com">
           <h2 style="color:white;">Background Vizzy Element with Website</h2>
           <p style="color:beige;">
             *Note: Cross-origin sites prohibit tracking keydown events, so you'll 
             have to use the navigation arrows to advance the slide if you interact 
             with the embedded website.
           </p>
+        </section>
+        <section data-background-vizzy="https://gcalmettes.github.io/bootstrap-tools/">
+          <h2 style="color:white;">Another website</h2>
         </section>
         <section>
           <h2>Embed a Website in an Iframe</h2>
@@ -176,7 +179,7 @@ window._fragments = [
                 vizzy: {
                     autoRunTransitions: true,  // in print, or when moving backwards
                     autoTransitionDelay: 100,  // delay between auto transitions (ms)
-                    devMode: false,            // report logs to console
+                    devMode: true,            // report logs to console
                     onSlideChangedDelay: 0     // delay to show vizzies
                 },
                 highlight: {
