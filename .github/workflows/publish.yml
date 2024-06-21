@@ -20,9 +20,12 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       
       - name: Setup for publication
-        if: env.PUBLISH_ENABLED == 'true'
         run: npm ci
 
+      - name: Check if publishing enabled
+        if: env.PUBLISH_ENABLED == 'true'
+        run: echo "PUBLISH_ENABLED=true" >> $GITHUB_ENV
+        
       - name: Publish to npm
         if: env.PUBLISH_ENABLED == 'true'
         run: npm publish --provenance --access public
