@@ -3,7 +3,7 @@ name: Create Vizzy Release From Tag
 on:
   push:
     tags:
-      - 'v*.*.*' # This matches version tags like v1.0.0, v1.2.3, etc.
+      - 'v*.*.*' 
 
 jobs:
   setup-release:
@@ -63,8 +63,9 @@ jobs:
       - name: Read changelog
         id: read_changelog
         run: |
-          changelog=$(cat CHANGELOG.md)
-          echo "CHANGELOG=$changelog" >> $GITHUB_ENV
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          cat CHANGELOG.md >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
 
       - name: Get the version from package.json
         id: get_version
