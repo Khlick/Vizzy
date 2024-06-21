@@ -2,163 +2,191 @@
 <html lang="en">
 
 <head>
-    <meta charset="utf-8">
-    <title>Reveal.js - ES6 Vizzy Presentation</title>
-    <link rel="stylesheet" href="./reveal5.1.0/reveal.css" />
-    <link rel="stylesheet" href="./reveal5.1.0/reset.css" />
-    <link rel="stylesheet" href="./reveal5.1.0/theme/white.css" />
-    <link rel="stylesheet" href="./reveal5.1.0/plugin/highlight/monokai.css" />
-    <style>
-        .grid-container {
-          display: grid;
-          grid-template-columns: 1fr 2fr;
-          height: 600px;
-          width: 100%;
-        }
-        
-        .grid-item {
-          padding: 5px;
-        }
-      </style>
+  <meta charset="utf-8">
+  <title>Reveal.js - ES6 Vizzy Presentation</title>
+  <link rel="stylesheet" href="./reveal5.1.0/reveal.css" />
+  <link rel="stylesheet" href="./reveal5.1.0/reset.css" />
+  <link rel="stylesheet" href="./reveal5.1.0/theme/white.css" />
+  <link rel="stylesheet" href="./reveal5.1.0/plugin/highlight/monokai.css" />
+  <style>
+    .grid-container {
+      display: grid;
+      grid-template-columns: 1fr 2fr;
+      height: 600px;
+      width: 100%;
+    }
+
+    .grid-item {
+      padding: 5px;
+    }
+  </style>
 </head>
 
 <body>
-    <div class="reveal">
-        <div class="slides">
-            <section>
-                <h2>Slide 1</h2>
-                <p>This is the first slide.</p>
-            </section>
-            <section>
-                <h2>This is a second slide</h2>
-                <p class="fragment" data-fragment-index="1">With fragments!</p>
-                <vizzy 
-                data-src="lib/visualizations/collision-detection.html" 
-                style="height:600px;"
-                data-style="overflow:hidden;">
-                </vizzy>
-            </section>
-            <section>
-                <h2>This is a third slide</h2>
-                <div>
-                    <p>Some content here.</p>
-                    <p>$\bar{x} = \frac{1}{N}\sum_{i=0}^{N}x_i$</p>
-                </div>
-            </section>
-            <section>
-                <h2>A slide with fragments</h2>
-                <p class="fragment">Fade in</p>
-                <p class="fragment fade-out">Fade out</p>
-                <p class="fragment highlight-red">Highlight red</p>
-                <p class="fragment fade-in-then-out">Fade in, then out</p>
-                <p class="fragment fade-up">Slide up while fading in</p>
-            </section>
-            <section>
-                <h2>Vizzy With Fragments</h2>
-                <div class="grid-container">
-                    <div class="grid-item fragments" style="font-size:smaller;">
-                      <div class="fragment">Fragment 1: Introduction to the concept.</div>
-                      <div class="fragment" data-fragment-index="2">Fragment 2: Detailed explanation.</div>
-                      <div class="fragment">Fragment 3: Example use case.</div>
-                      <div class="fragment" data-fragment-index="1">Fragment 4: Conclusion and summary.</div>
-                    </div>
-                    <vizzy data-src="lib/visualizations/collision-detection.html" class="grid-item"></vizzy>
-                  </div>
-            </section>
-            <section data-background-vizzy="lib/visualizations/collision-detection.html">
-                <h2 style="color:steelblue;">Background Effects</h2>
-            </section>
-            <section>
-                <section>
-                    <h2>Vertical Stack (top)</h2>
-                </section>
-                <section>
-                    <h2>Vertical Stack (middle)</h2>
-                    <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
-                        <vizzy data-src="lib/visualizations/rainbow.html" class="grid-item"></vizzy>
-                        <vizzy data-src="lib/visualizations/bar-chart.html" class="grid-item"></vizzy>
-                        <div style="grid-column: 1/3;">
-                            <p class="fragment">Run 2 visualizations at once!</p>
-                        </div>
-                    </div>
-                </section>
-                <section>
-                    <h2>Vertical Stack (bottom)</h2>
-                    <div>
-                        <pre><code class="language-python">
-                            def func(a,b):
-                                return math.sqrt(a**2 + b**2)
-                        </code></pre>
-                    </div>
-                </section>
-            </section>
-            <section>
-                <section>
-                    <h2>Another Horizontal Slide</h2>
-                </section>
-                <section data-background-vizzy="http://khrisgriffis.com">
-                </section>
-                <section>
-                    <h2>The end!</h2>
-                </section>
-            </section>
+  <div class="reveal">
+    <div class="slides">
+      <section>
+        <h2>Introduction to Vizzy Plugin</h2>
+        <p>Welcome to the Vizzy Plugin tutorial. This plugin allows embedding and interacting with iframes in Reveal.js presentations.</p>
+      </section>
+      <section>
+        <h2>Basic Vizzy Element</h2>
+        <p class="fragment" data-fragment-index="0" style="font-size: smaller;">This slide includes a basic vizzy element.</p>
+        <div class="fragment" data-fragment-index="1" style="font-size:0.75em;">
+          <pre><code class="language-html">
+&lt;vizzy data-src="lib/viz/collision-detection.html" style="height:600px;"&gt;&lt;/vizzy&gt;
+          </code></pre>
         </div>
+        <vizzy data-src="lib/viz/collision-detection.html" style="height:600px;">
+        </vizzy>
+      </section>
+      <section>
+        <h2>Vizzy Element with Fragments</h2>
+        <div class="grid-container">
+          <div class="grid-item" style="font-size:smaller;">
+            <ul style="font-size: smaller;">
+              <li class="fragment" data-fragment-index="1">Use <code>space</code> to navigate forward.</li>
+              <li class="fragment">Through custom visualizations</li>
+              <li class="fragment" data-fragment-index="2">You can still drive the presentation</li>
+              <li class="fragment">*there is a caveat though.</li>
+              <li class="fragment" data-fragment-index="0">Use the mouse to interact with the vizzy. Try clicking on the vizzy</li>
+          </ul>          
+          </div>
+          <vizzy data-src="lib/viz/collision-detection.html" class="grid-item"></vizzy>
+        </div>
+      </section>
+      <section data-background-vizzy="lib/viz/collision-detection.html">
+        <h2 style="color:steelblue;">Background Vizzy Element</h2>
+        <p>This slide uses a vizzy element as a background.</p>
+        <p class="fragment" data-fragment-index="0">With fragments</p>
+      </section>
+      <section>
+        <section>
+          <h2>Multiple Vizzy Elements</h2>
+          <p>You can place vizzy elements just as you would any other html entity.</p>
+          <p>You may place as many as you wish, and synchronize their fragments!</p>
+        </section>
+        <section>
+          <h2>Multiple Vizzies in Vertical Stack</h2>
+          <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
+            <vizzy data-src="lib/viz/rainbow.html" class="grid-item"></vizzy>
+            <vizzy data-src="lib/viz/bar-chart.html" class="grid-item"></vizzy>
+            <div style="grid-column: 1/3;">
+              <p class="fragment" data-fragment-index="1">Run 2 visualizations at once!</p>
+            </div>
+          </div>
+          </section>
+          <section>
+            <h2>Synchronizing Fragments</h2>
+            <h4>Across multiple vizzy elements</h4>
+            <p style="font-size: smaller;">Fragments are set with the vizzy src <code>window._fragments</code> object</p>
+            <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
+              <div style="font-size:0.65em;" class="grid-item">
+                <h3>rainbow.html</h3>
+                <pre><code class="language-javascript">
+window._fragments = [
+  {
+    activate: () => recolorize(0.2, 0.9, 0.7),
+    index: -1 // will autorun
+  },
+  {
+    activate: () => recolorize(0.1, 1, 0.5),
+    reverse: () => recolorize(1, 1, 0.5),
+    index: 0
+  },
+  {
+    activate: () => recolorize(1, 0.5, 1),
+    reverse: () => recolorize(0.1, 1, 0.5),
+    index: 2
+  }
+];
+                </code></pre>
+              </div>
+              <div style="font-size:0.65em;" class="grid-item">
+                <h3>bar-chart.html</h3>
+                <pre><code class="language-javascript">
+window._fragments = [
+  { 
+    activate: () => render("science"), 
+    reverse: () => render("math"), 
+    index: 1 
+  },
+  { 
+    activate: () => render("language"), 
+    reverse: () => render("science"), 
+    index: 2 
+  }
+];
+                </code></pre>
+              </div>
+            </div>
+          </section>
+      </section>
+      <section>
+        <section>
+          <h2>Working with websites</h2>
+          <p>Vizzies can hold any web address.</p>
+        </section>
+        <section data-background-vizzy="http://khrisgriffis.com">
+          <h2 style="color:white;">Background Vizzy Element with Website</h2>
+          <p style="color:beige;">
+            *Note: Cross-origin sites prohibit tracking keydown events, so you'll 
+            have to use the navigation arrows to advance the slide if you interact 
+            with the embedded website.
+          </p>
+        </section>
+        <section>
+          <h2>Embed a Website in an Iframe</h2>
+          <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
+            <div class="grid-item" style="width:400px;">
+              <div style="font-size: 0.65em;">
+                <pre><code lang="html">
+&lt;vizzy data-src="https://khrisgriffis.com" data-scrolling="no"&gt;&lt;/vizzy&gt;
+                </code></pre>
+              </div>
+              <vizzy data-src="https://khrisgriffis.com" style="height:428px;" data-scrolling="no"></vizzy>
+            </div>
+            <div class="grid-item" style="width:400px;">
+              <div style="font-size: 0.65em;">
+                <pre><code lang="html">
+&lt;vizzy data-src="https://khrisgriffis.com" &gt;&lt;/vizzy&gt;
+                </code></pre>
+              </div>
+              <vizzy data-src="https://khrisgriffis.com" style="height:428px;" ></vizzy>
+            </div>
+          </div>
+        </section>
+        <section>
+          <h2>End</h2>
+          <p>Thank you for exploring the Vizzy plugin for Reveal.js.</p>
+        </section>
+      </section>
     </div>
-    <script src="reveal5.1.0/reveal.js"></script>
-    <script type="module">
-        // import Reveal from './reveal5.1.0/reveal.esm.js';
+  </div>
+  <!-- Reveal.js Setup -->
+  <script src="reveal5.1.0/reveal.js"></script>
+  <script type="module">
+    // import Reveal from './reveal5.1.0/reveal.esm.js';
         import Vizzy from './vizzy.esm.js';
         import Highlight from './reveal5.1.0/plugin/highlight/highlight.esm.js';
-        import Notes from './reveal5.1.0/plugin/notes/notes.esm.js';
-        import Math from './reveal5.1.0/plugin/math/math.esm.js';
-
+        
         document.addEventListener('DOMContentLoaded', () => {
-            let vizzy = new Vizzy();
             Reveal.initialize({
-                plugins: [vizzy, Notes, Highlight, Math.MathJax3],
+                plugins: [Vizzy, Highlight],
                 vizzy: {
                     autoRunTransitions: true,  // in print, or when moving backwards
-                    autoTransitionDelay: 50,   // delay between auto transitions (ms)
+                    autoTransitionDelay: 100,  // delay between auto transitions (ms)
                     devMode: false,            // report logs to console
                     onSlideChangedDelay: 0     // delay to show vizzies
                 },
                 highlight: {
 
                 },
-                mathjax3: {
-                    mathjax: "https://cdn.jsdelivr.net/npm/mathjax@4.0.0-beta.6/tex-mml-chtml.js",
-                    loader: {
-                        load: [
-                        "[tex]/html",
-                        ],
-                    },
-                    tex: {
-                        packages: {
-                            '[+]': [
-                            "html",
-                            ],
-                        },
-                        inlineMath: [
-                            ["$", "$"],
-                            ["\\(", "\\)"],
-                            ],
-                        },
-                    options: {
-                        skipHtmlTags: [
-                        "script",
-                        "noscript",
-                        "style",
-                        "textarea",
-                        "pre",
-                        ]
-                    },
-                    config: 'TeX-AMS_HTML-full'
-                },
                 // The maximum number of pages a single slide can expand onto when printing
                 // to PDF, unlimited by default
                 pdfMaxPagesPerSlide: 1,
 
-                // Prints each fragment on a separate slide
+                // Prevents splitting fragments to pages
                 pdfSeparateFragments: false,
 
                 // Number of slides away from the current that are visible

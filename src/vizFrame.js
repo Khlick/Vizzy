@@ -6,6 +6,7 @@ class VizFrame {
     this.isBackground = isBackground;
     this.vizzyContainer = vizzyContainer;
     this.iframe = this.createIframe();
+    this.setOnLoad();
     this.loaded = false;
     this.observer = this.createMutationObserver();
     this.dev = devMode;
@@ -15,12 +16,6 @@ class VizFrame {
     this.iframeFocused = false;
 
     this.show(); // append to vizzy
-    // Note, for non-backgrounds, this will bind iframes to vizzy and Reveal's 
-    // lazy-load mechanism will take over. 
-    // For background elements, the vizzyContainer node is not bound anywhere 
-    // on the page, so it will not show. The vizzy plugin object needs to 
-    // handle the showing/hiding within the reveal viewDistance if we want
-    // to maintain similar lazy-load functionality.
   }
 
   createIframe() {
@@ -44,44 +39,26 @@ class VizFrame {
       }
     });
 
+    return iframe;
+  }
+
+  setOnLoad() {
+    const iframe = this.iframe;
     // Event listener for propagating keydown events
     iframe.addEventListener('load', () => {
+      this.loaded = true;
       const iframeWindow = iframe.contentWindow || iframe.contentDocument;
       try {
         iframeWindow.addEventListener('keydown', (event) => {
           const customEvent = new CustomEvent('iframe-keydown', { detail: event });
           window.parent.dispatchEvent(customEvent); // send to parent window
-          // Reveal.layout();
+          Reveal.layout();
         });
       } catch (e) {
-        this.keyAccess = false;
         this.log(`Error accessing iframe window for ${this.src}: ${e.message}`, 'createIframe');
-      } finally {
-        if (!this.keyAccess) {
-          // Event listener for propagating keydown events
-          iframe.addEventListener('focus', () => {
-            this.iframeFocused = true;
-            this.log(`Iframe focused: ${this.src}`, 'createIframe');
-          });
-
-          iframe.addEventListener('blur', () => {
-            this.iframeFocused = false;
-            this.log(`Iframe blurred: ${this.src}`, 'createIframe');
-          });
-          // Listen to keydown events on the parent window
-          window.addEventListener('keydown', (event) => {
-            if (this.iframeFocused) {
-              const customEvent = new CustomEvent('iframe-keydown', { detail: event });
-              window.parent.dispatchEvent(customEvent); // send to parent window
-            }
-          }, false);
-        }
       }
     });
-
-    return iframe;
   }
-
   // GET/SET METHODS
   getIndex(key="linear") {
     return this.index.hasOwnProperty(key) ? this.index[key] : -1;
@@ -120,6 +97,27 @@ class VizFrame {
       this.hide();
       setTimeout(() => {
         this.show();
+        // Check if the iframe is cross-origin
+        try {
+          if (this.iframe.contentWindow) {
+            this.iframe.contentWindow.location.reload();
+          } else {
+            throw new Error('Cross-origin iframe or inaccessible contentWindow');
+          }
+        } catch (e) {
+          if (e instanceof DOMException && e.name === 'SecurityError' || e.message.includes('inaccessible contentWindow')) {
+            this.log(`Cross-origin iframe detected, reloading with workaround`, 'show');
+            // Workaround: Remove and reattach the iframe for cross-origin iframes
+            const parent = this.iframe.parentElement;
+            const newIframe = this.iframe.cloneNode();
+            parent.removeChild(this.iframe);
+            parent.appendChild(newIframe);
+            this.iframe = newIframe;
+            this.setOnLoad();
+          } else {
+            throw e; // Re-throw if it's not a cross-origin issue
+          }
+        }
       }, this.delay);
     }
   }
@@ -130,6 +128,16 @@ class VizFrame {
   }
 
   // Toggles render state
+  waitForLoad() {
+    return new Promise((resolve) => {
+      if (this.loaded) {
+        resolve();
+      } else {
+        this.iframe.addEventListener('load', () => resolve(), { once: true });
+      }
+    });
+  }
+
   show() {
     if (!this.vizzyContainer.contains(this.iframe)) {
       this.vizzyContainer.appendChild(this.iframe);

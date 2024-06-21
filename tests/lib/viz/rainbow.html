@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+  .axisWhite line {
+    stroke: black;
+  }
+
+  .axisWhite path {
+    stroke: black;
+  }
+
+  .axisWhite text {
+    fill: black;
+  }
+
+  .message {
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    fill: black;
+  }
+</style>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<body>
+<script>
+  const margin = { top: 50, right: 20, bottom: 50, left: 20 },
+    width = 400 - margin.left - margin.right,
+    height = 250 - margin.top - margin.bottom;
+
+  const x = d3.scaleLinear().domain([0, 5.9]).range([0, width]);
+  const y = d3.scaleLinear().domain([-1, 1]).range([height, 0]);
+  const z = d3.scaleLinear().domain([0, 5.9]).range([0, 360]);
+
+  const points = d3.range(0, 6, 0.1).map(t => ({ value: t, 0: x(t), 1: y(Math.sin(t)) }));
+
+  const svg = d3.select('body').append('svg')
+    .attr('width', width + margin.left + margin.right)
+    .attr('height', height + margin.top + margin.bottom)
+    .append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const path = svg.selectAll('path')
+    .data(quad(points))
+    .enter().append('path')
+    .style('fill', d => d3.hsl(z(d[1].value), 1, 0.5))
+    .style('stroke', '#000');
+
+  const t0 = Date.now();
+  d3.timer(() => {
+    const dt = (Date.now() - t0) * 0.001;
+    points.forEach(d => { d[1] = y(d.scale = Math.sin(d.value + dt)); });
+    path.attr('d', d => lineJoin(d[0], d[1], d[2], d[3], 80 * d[1].scale * d[1].scale + 10));
+  });
+
+  function quad(points) {
+    return d3.range(points.length - 1).map(i => [points[i - 1], points[i], points[i + 1], points[i + 2]]);
+  }
+
+  function lineJoin(p0, p1, p2, p3, width) {
+    const u12 = perp(p1, p2);
+    let r = width / 2;
+    let a = [p1[0] + u12[0] * r, p1[1] + u12[1] * r],
+      b = [p2[0] + u12[0] * r, p2[1] + u12[1] * r],
+      c = [p2[0] - u12[0] * r, p2[1] - u12[1] * r],
+      d = [p1[0] - u12[0] * r, p1[1] - u12[1] * r];
+
+    if (p0) {
+      const u01 = perp(p0, p1), e = [p1[0] + u01[0] + u12[0], p1[1] + u01[1] + u12[1]];
+      a = lineIntersect(p1, e, a, b);
+      d = lineIntersect(p1, e, d, c);
+    }
+
+    if (p3) {
+      const u23 = perp(p2, p3), e = [p2[0] + u23[0] + u12[0], p2[1] + u23[1] + u12[1]];
+      b = lineIntersect(p2, e, a, b);
+      c = lineIntersect(p2, e, d, c);
+    }
+
+    return `M${a}L${b} ${c} ${d}Z`;
+  }
+
+  function lineIntersect(a, b, c, d) {
+    const x1 = c[0], x3 = a[0], x21 = d[0] - x1, x43 = b[0] - x3,
+      y1 = c[1], y3 = a[1], y21 = d[1] - y1, y43 = b[1] - y3,
+      ua = (x43 * (y1 - y3) - y43 * (x1 - x3)) / (y43 * x21 - x43 * y21);
+    return [x1 + ua * x21, y1 + ua * y21];
+  }
+
+  function perp(p0, p1) {
+    const u01x = p0[1] - p1[1], u01y = p1[0] - p0[0],
+      u01d = Math.sqrt(u01x * u01x + u01y * u01y);
+    return [u01x / u01d, u01y / u01d];
+  }
+
+  function recolorize(f, n1, n2) {
+    path.transition().duration(500)
+      .style('fill', d => d3.hsl(z(d[1].value) / f, n1, n2));
+  }
+
+  async function showMessage(message, duration) {
+    const messageText = svg.append('text')
+      .attr('class', 'message')
+      .attr('x', width / 2)
+      .attr('y', height / 2)
+      .attr('text-anchor', 'middle')
+      .text(message);
+
+    return new Promise(resolve => {
+      setTimeout(() => {
+        recolorize(0.2, 0.9, 0.7);
+        messageText.remove();
+        resolve();
+      }, duration);
+    });
+  }
+
+  window._fragments = [
+    {
+      activate: async () => {
+        await showMessage('Autorunning fragments (index = -1)', 500);
+      },
+      index: -1
+    },
+    {
+      activate: () => recolorize(0.1, 1, 0.5),
+      reverse: () => recolorize(1, 1, 0.5),
+      index: 0
+    },
+    {
+      activate: () => recolorize(1, 0.5, 1),
+      reverse: () => recolorize(0.1, 1, 0.5),
+      index: 2
+    }
+  ];
+</script>
+</body>
+</html>
