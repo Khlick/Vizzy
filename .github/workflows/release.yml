@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*.*.*' 
+
 jobs:
   create-release:
     name: Create Release
@@ -99,6 +100,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Move built files to root directory
+        run: |
+          mv dist/vizzy.js .
+          mv dist/vizzy.esm.js .
 
       - name: Check if publishing is enabled
         run: echo "PUBLISH_ENABLED=${{ vars.PUBLISH_ENABLED }}" >> $GITHUB_ENV
