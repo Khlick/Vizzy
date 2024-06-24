@@ -112,6 +112,9 @@ jobs:
       - name: Check if publishing is enabled
         run: echo "PUBLISH_ENABLED=${{ vars.PUBLISH_ENABLED }}" >> $GITHUB_ENV
 
+      - name: Print PUBLISH_ENABLED
+        run: echo "PUBLISH_ENABLED is ${{ env.PUBLISH_ENABLED }}"
+
       - name: Publish to npm
         if: ${{ env.PUBLISH_ENABLED == 'true' }}
         run: npm publish --provenance --access public
