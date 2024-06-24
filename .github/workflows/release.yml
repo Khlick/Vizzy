@@ -109,14 +109,11 @@ jobs:
           mv dist/vizzy.js .
           mv dist/vizzy.esm.js .
 
-      - name: Check if publishing is enabled
-        run: echo "PUBLISH_ENABLED=${{ vars.PUBLISH_ENABLED }}" >> $GITHUB_ENV
-
       - name: Print PUBLISH_ENABLED
         run: echo "PUBLISH_ENABLED is ${{ env.PUBLISH_ENABLED }}"
 
       - name: Publish to npm
-        if: ${{ env.PUBLISH_ENABLED == 'true' }}
+        if: ${{ env.PUBLISH_ENABLED == 'true' || env.PUBLISH_ENABLED == true}}
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
