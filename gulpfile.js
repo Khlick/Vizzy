@@ -3,7 +3,8 @@ const rollup = require('rollup'); // For bundling JavaScript
 const resolve = require('@rollup/plugin-node-resolve').nodeResolve; // For resolving node modules
 const commonjs = require('@rollup/plugin-commonjs'); // For converting CommonJS modules to ES6
 const { babel: rollupBabel } = require('@rollup/plugin-babel'); // For using Babel with Rollup
-const terser = require('rollup-plugin-terser').terser; // For minifying the bundle
+const { terser } = require('@rollup/plugin-terser'); // For minifying the bundle
+const del = require('del'); // For cleaning the dist directory
 
 // Babel configuration for both UMD and ESM builds
 const babelConfig = {
@@ -38,6 +39,11 @@ babelConfigESM.presets[0][1].targets = {
 // Cache to improve build performance by reusing previous results
 let cache = {};
 
+// Clean the dist directory
+gulp.task('clean', () => {
+  return del(['dist']);
+});
+
 // Task to build the Vizzy plugin
 gulp.task('build:vizzy', () => {
   return rollup.rollup({
@@ -65,14 +71,16 @@ gulp.task('build:vizzy', () => {
     bundle.write({
       file: 'dist/vizzy.esm.js',
       name: 'Vizzy',
-      format: 'es'
+      format: 'es',
+      sourcemap: true
     });
 
     // Write UMD version
     bundle.write({
       file: 'dist/vizzy.js',
       format: 'umd',
-      name: 'Vizzy'
+      name: 'Vizzy',
+      sourcemap: true
     });
   });
 });
@@ -84,4 +92,4 @@ gulp.task('copy:dist', () => {
 });
 
 // Default task: clean, build, and copy the files
-gulp.task('default', gulp.series('build:vizzy'));
+gulp.task('default', gulp.series('clean', 'build:vizzy'));
