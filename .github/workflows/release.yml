@@ -110,10 +110,10 @@ jobs:
           mv dist/vizzy.esm.js .
 
       - name: Print PUBLISH_ENABLED
-        run: echo "PUBLISH_ENABLED is ${{ vars.PUBLISH_ENABLED }}"
+        run: echo "PUBLISH_ENABLED ${{ vars.PUBLISH_ENABLED && 'true' || 'false' }}"
 
       - name: Publish to npm
-        if: ${{ vars.PUBLISH_ENABLED == 'true' || vars.PUBLISH_ENABLED == true}}
+        if: ${{ vars.PUBLISH_ENABLED }}
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
