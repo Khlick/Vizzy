@@ -1,6 +1,6 @@
 {
   "name": "vizzy-reveal",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A Reveal.js plugin to integrate and interact with external pages.",
   "keywords": [
     "reveal.js",

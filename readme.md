@@ -156,7 +156,7 @@ In addition to defining the `_fragments` array directly within the iframe conten
 
 When defining fragments directly within the `<vizzy>` element, ensure the following:
 
-1. **Return an Array of Objects:** The code must return an array of objects where each object contains `activate`, `reverse`, and `index` fields. These fields should align with the usage of the `window._fragments` array. _Note: When defining the `index`, use `-1` to create an autorun step from within the `<vizzy>` element._
+1. **Return an Array of Objects:** The code must return an array of objects where each object contains `activate` (required), `reverse` (optional), `deactivate` (optional), and `index` (required) fields. These fields should align with the usage of the `window._fragments` array. _Note: When defining the `index`, use `-1` to create an auto-run step from within the `<vizzy>` element._
 
 2. **Accessing the Content Window:** The iframe's `contentWindow` is passed automatically as `window`, allowing you to access any functions or objects defined within the iframe. This enables seamless interaction between the fragment definitions and the iframe's content.
 
