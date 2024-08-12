@@ -2,7 +2,11 @@
   "name": "vizzy-reveal",
   "version": "1.1.0",
   "description": "A Reveal.js plugin to integrate and interact with external pages.",
-  "keywords": ["reveal.js", "reveal-plugins", "presentation"],
+  "keywords": [
+    "reveal.js",
+    "reveal-plugins",
+    "presentation"
+  ],
   "main": "vizzy.js",
   "module": "vizzy.esm.js",
   "scripts": {
@@ -33,7 +37,7 @@
   "bugs": "https://github.com/Khlick/Vizzy/issues",
   "author": {
     "name": "Khris Griffis, Ph.D.",
-    "email": "khris.griffis.phd@gmail.com", 
+    "email": "khris.griffis.phd@gmail.com",
     "url": "https://khrisgriffis.com"
   },
   "files": [
@@ -42,6 +46,6 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/Khlick/Vizzy"
+    "url": "git+https://github.com/Khlick/Vizzy.git"
   }
 }
