@@ -50,7 +50,7 @@
               <li class="fragment" data-fragment-index="2">You can still drive the presentation</li>
               <li class="fragment">*there is a caveat though.</li>
               <li class="fragment" data-fragment-index="0">Use the mouse to interact with the vizzy. Try clicking on the vizzy</li>
-          </ul>          
+          </ul>
           </div>
           <vizzy data-src="lib/viz/collision-detection.html" class="grid-item"></vizzy>
         </div>
@@ -75,15 +75,15 @@
               <p class="fragment" data-fragment-index="1">Run 2 visualizations at once!</p>
             </div>
           </div>
-          </section>
-          <section>
-            <h2>Synchronizing Fragments</h2>
-            <h4>Across multiple vizzy elements</h4>
-            <p style="font-size: smaller;">Fragments are set with the vizzy src <code>window._fragments</code> object</p>
-            <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
-              <div style="font-size:0.65em;" class="grid-item">
-                <h3>rainbow.html</h3>
-                <pre><code class="language-javascript">
+        </section>
+        <section>
+          <h2>Synchronizing Fragments</h2>
+          <h4>Across multiple vizzy elements</h4>
+          <p style="font-size: smaller;">Fragments are set with the vizzy src <code>window._fragments</code> object</p>
+          <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
+            <div style="font-size:0.65em;" class="grid-item">
+              <h3>rainbow.html</h3>
+              <pre><code class="language-javascript">
 window._fragments = [
   {
     activate: () => recolorize(0.2, 0.9, 0.7),
@@ -159,10 +159,95 @@ window._fragments = [
             </div>
           </div>
         </section>
+      </section>
+      <section>
         <section>
-          <h2>End</h2>
-          <p>Thank you for exploring the Vizzy plugin for Reveal.js.</p>
+          <h2>Advanced Fragments</h2>
+          <p>Fragments do not need to be written on the vizzy's <code>data-src</code> source.</p>
         </section>
+        <section>
+          <h2>Advanced Fragments</h2>
+          <p style="font-size: smaller;">Fragments are set with the vizzy src <code>window._fragments</code> object
+          <span style="font-size: smaller;" class="fragment" data-fragment-index="0"> Or within the vizzy element itself!</span></p>
+          <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
+            <div style="font-size:0.65em;" class="grid-item">
+              <h3>bar-chart.html</h3>
+              <pre><code class="language-javascript">window._fragments = [
+{ 
+  activate: () => render("science"), 
+  reverse: () => render("math"), 
+  index: 1 
+},
+{ 
+  activate: () => render("language"), 
+  reverse: () => render("science"), 
+  index: 2 
+}
+];</code></pre>
+            </div>
+            <div style="font-size:0.50em;" class="grid-item fragment" data-fragment-index="0">
+              <h3>index.html</h3>
+              <pre><code class="language-javascript">&lt;vizzy data-src=&quot;lib/viz/bar-chart.html&quot;&gt;
+[
+  { 
+    activate: () =&gt; window.render(&quot;language&quot;), 
+    reverse: () =&gt; window.render(&quot;math&quot;), 
+    index: 1 
+  },
+  { 
+    activate: () =&gt; window.render(&quot;science&quot;), 
+    reverse: () =&gt; window.render(&quot;language&quot;),
+    index: 2 
+  },
+  { 
+    activate: () =&gt; window.render(&quot;math&quot;), 
+    reverse: () =&gt; window.render(&quot;science&quot;),
+    index: 3 
+  }
+]
+&lt;/vizzy&gt;</code></pre>
+            </div>
+            <div class="grid-item" style="grid-column: 1/3;">
+              <p class="fragment" style="font-size: smaller;" data-fragment-index="1">Note: We need to use <code>window</code> to access any public functions on the source!</p>
+            </div>
+          </div>
+        </section>
+        <section>
+          <h2>Advanced Fragments</h2>
+          <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
+            <vizzy data-src="lib/viz/bar-chart.html" class="grid-item"></vizzy>
+            <vizzy data-src="lib/viz/bar-chart.html" class="grid-item">
+              [
+                { 
+                  activate: () => window.render("science"), 
+                  index: -1 
+                },
+                { 
+                  activate: () => window.render("language"), 
+                  reverse: () => window.render("math"), 
+                  index: 1 
+                },
+                { 
+                  activate: () => window.render("science"), 
+                  reverse: () => window.render("language"),
+                  index: 2 
+                },
+                { 
+                  activate: () => window.render("math"), 
+                  reverse: () => window.render("science"),
+                  index: 3
+                }
+              ]
+            </vizzy>
+            <div class="grid-item" style="grid-column: 1/3;">
+              <p class="fragment" style="font-size: smaller;" data-fragment-index="3">Use any number of new fragments inline!</p>
+            </div>
+          </div>
+        </section>
+      </section>
+      <section>
+        <h2>End</h2>
+        <p>Thank you for exploring the Vizzy plugin for Reveal.js.</p>
       </section>
     </div>
   </div>
@@ -193,7 +278,11 @@ window._fragments = [
                 pdfSeparateFragments: false,
 
                 // Number of slides away from the current that are visible
-                viewDistance: 3
+                viewDistance: 3,
+                height: '100%',
+                minScale: 0.2,    // Minimum scaling factor
+                maxScale: 1.5,    // Maximum scaling factor
+                margin: 0.1,      // Slide margin, smaller values mean larger slides
             });
         });
     </script>

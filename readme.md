@@ -148,6 +148,51 @@ You can use fragments to create step-by-step transitions within your Vizzy ifram
 </script>
 ```
 
+### Advanced Fragments with Vizzy
+
+In addition to defining the `_fragments` array directly within the iframe content, Vizzy allows you to define fragments directly within the `<vizzy>` element. This advanced feature provides greater flexibility by enabling the dynamic creation of fragments, which can interact with the iframe's content.
+
+#### Defining Fragments in the Vizzy Element
+
+When defining fragments directly within the `<vizzy>` element, ensure the following:
+
+1. **Return an Array of Objects:** The code must return an array of objects where each object contains `activate`, `reverse`, and `index` fields. These fields should align with the usage of the `window._fragments` array. _Note: When defining the `index`, use `-1` to create an autorun step from within the `<vizzy>` element._
+
+2. **Accessing the Content Window:** The iframe's `contentWindow` is passed automatically as `window`, allowing you to access any functions or objects defined within the iframe. This enables seamless interaction between the fragment definitions and the iframe's content.
+
+#### Example Usage
+
+Here's an example of how to define fragments directly within the `<vizzy>` element:
+
+```html
+<vizzy data-src="lib/viz/bar-chart.html" class="grid-item">
+  [
+    { 
+      activate: () => window.render("math"), 
+      reverse: () => window.render("language"), 
+      index: 1 
+    },
+    { 
+      activate: () => window.render("science"), 
+      reverse: () => window.render("math"),
+      index: 2 
+    }
+  ]
+</vizzy>
+```
+
+In this example:
+
+- **Activate and Reverse Functions:** The `activate` and `reverse` functions are executed within the context of the iframe's `contentWindow`, allowing you to directly call functions like `window.render()` which are defined within the iframe's content.
+- **Indexing:** Each fragment is indexed similarly to how it would be within the `_fragments` array. The index determines the order in which the fragments are activated as the user progresses through the slide.
+
+#### Key Considerations
+
+- **Encapsulation:** By defining fragments in the `<vizzy>` element, you encapsulate the fragment logic within the element itself, leading to a more modular and maintainable codebase.
+- **Error Handling:** If the fragment definition contains errors, or if the `contentWindow` is not accessible, Vizzy will log the error but continue to operate without crashing.
+
+This feature is particularly useful for advanced users who need dynamic fragment creation or who want to keep their fragment logic closely tied to specific instances of the `<vizzy>` element.
+
 ## Configuration
 
 You can configure Vizzy by passing options to the plugin during the `Reveal.initialize()` method, as shown below.

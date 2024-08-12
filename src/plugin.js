@@ -26,9 +26,10 @@ class Plugin {
       ...this.config,
       ...this.Reveal.getConfig().vizzy
     };
+    this.log("Initializing Vizzy-Reveal Plugin", 'init');
     // Initialize vizzy elements
-    this.preloadVizzyFrames();
-    await this.gatherFragmentsFromFrames();
+    await this.preloadVizzyFrames();
+    // await this.gatherFragmentsFromFrames();
     this.syncFragmentsWithSlides();
     this.setupKeydownEventListener();
     this.setupFragmentListeners();
@@ -43,31 +44,47 @@ class Plugin {
   }
 
   // IFRAME Management                                                     //
+
+  // Locate and wrap vizzy contents:
+  wrapInlineScripts(vizzyElement) {
+    const scriptText = vizzyElement.textContent.trim();
+    if (scriptText.length > 0) {
+      // Create a span element to wrap the JavaScript code
+      const span = document.createElement('span');
+      span.setAttribute('data-vizzy-fragments', '');
+      span.style.display = 'none'; // Hide the span
+
+      // Set the script text inside the span
+      span.textContent = scriptText;
+
+      // Clear the vizzy element's content and append the span
+      vizzyElement.textContent = '';
+      vizzyElement.appendChild(span);
+
+      this.log(`Wrapped inline script in vizzy element with data-vizzy-fragments span`, 'wrapInlineScripts');
+    }
+  }
   
   // Parse Vizzy Frames and Backgrounds
-  preloadVizzyFrames() {
-    // Dedfine function to parse each slide for vizzy frames and backgrounds
+  async preloadVizzyFrames() {
+    this.log("Preloading Vizzy elements", 'preloadVizzyFrames');
+    const vizFrameInitPromises = []; // Array to store promises of init calls
+  
     const parseSlides = (slides) => {
-      slides.forEach(slide => {
-        // Check for vertical stack, if this slide has class 'stack', then we need to parse children 'section's and ignore this slide.
+      slides.forEach((slide) => {
         if (slide.innerHTML.includes('section')) {
-          // Recursively check nested vertical slides
           const nestedSlides = slide.querySelectorAll('section');
           parseSlides(nestedSlides);
-          return
+          return;
         }
-
+  
         const isBackground = slide.hasAttribute('data-background-vizzy');
         const slideIndex = this.getSlideIndex(slide);
-
+        this.log(`Parsing slide ${slideIndex.linear}`);
+  
         if (isBackground) {
-          // Get the source location
           const src = slide.getAttribute('data-background-vizzy');
-
-          // Create the vizzy element
           const vizzyContainer = this.createVizzyElementForBackground(slide);
-
-          // Create a new VizFrame and add it to the vizzyframes array
           const vizFrame = new VizFrame(
             src,
             true,
@@ -77,16 +94,18 @@ class Plugin {
             this.config.devMode,
             this.config.onSlideChangedDelay
           );
+          // Add timeout to each init call
+          vizFrameInitPromises.push(
+            this.withTimeout(vizFrame.init(), 10000, `Timeout initializing VizFrame for slide ${slideIndex.linear}`)
+          );
           this.vizzyframes.push(vizFrame);
         } else {
           const vizzyElements = slide.querySelectorAll('vizzy[data-src]');
-
-          vizzyElements.forEach((vizzyElement,id) => {
+  
+          vizzyElements.forEach((vizzyElement, id) => {
             const src = vizzyElement.getAttribute('data-src');
-
-            // Ensure the vizzy element has a data-src attribute
+            this.wrapInlineScripts(vizzyElement);
             if (src) {
-              // Create a new VizFrame and add it to the vizzyframes array
               const vizFrame = new VizFrame(
                 src,
                 false,
@@ -96,6 +115,9 @@ class Plugin {
                 this.config.devMode,
                 this.config.onSlideChangedDelay
               );
+              vizFrameInitPromises.push(
+                this.withTimeout(vizFrame.init(), 10000, `Timeout initializing VizFrame for slide ${slideIndex.linear}`)
+              );
               this.vizzyframes.push(vizFrame);
             } else {
               this.log('Skipping vizzy element without data-src attribute', 'preloadVizzyFrames');
@@ -104,11 +126,38 @@ class Plugin {
         }
       });
     };
-    // gather the first level slides and parse them
+  
     const rootSlides = document.querySelectorAll('.slides > section');
     parseSlides(rootSlides);
+  
+    try {
+      // Wait for all vizFrame init calls to complete
+      await Promise.all(vizFrameInitPromises);
+      this.log("All VizFrames initialized successfully.");
+    } catch (error) {
+      this.log(`Error initializing VizFrames: ${error.message}`, 'preloadVizzyFrames');
+    }
   }
-
+  
+  // Utility function to add a timeout to a promise
+  withTimeout(promise, ms, timeoutMessage) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(timeoutMessage));
+      }, ms);
+  
+      promise
+        .then(value => {
+          clearTimeout(timer);
+          resolve(value);
+        })
+        .catch(reason => {
+          clearTimeout(timer);
+          reject(reason);
+        });
+    });
+  }
+  
   // Handle ready event
   handleReady() {
     this.vizzyframes.forEach(vizFrame => {
@@ -126,98 +175,18 @@ class Plugin {
 
   //  Fragment Management                                                   //
 
-  // Gather iframe fragments
-  async gatherFragmentsFromFrames() {
-    // Create function to parse vizzies for _fragments objects
-    const loadAndCheckIframe = async (vizFrame) => {
-      return new Promise((resolve) => {
-        const hiddenIframe = document.createElement('iframe');
-        hiddenIframe.style.display = 'none';
-        hiddenIframe.src = vizFrame.src;
-
-        hiddenIframe.onload = () => {
-          try {
-            const iframeWindow = hiddenIframe.contentWindow;
-            if (iframeWindow._fragments) {
-              const fragmentList = [];
-              const usedIndices = new Set();
-
-              iframeWindow._fragments.forEach((frag, i) => {
-                if (!frag.activate) {
-                  const errorMessage = `Iframe source ${vizFrame.src} has a fragment without an 'activate' method at index ${i}`;
-                  this.log(errorMessage, 'gatherFragmentsFromFrames');
-                  throw new Error(errorMessage);
-                }
-
-                const validKeys = ['activate', 'deactivate', 'reverse', 'index'];
-                const fragKeys = Object.keys(frag);
-                const invalidKeys = fragKeys.filter(key => !validKeys.includes(key));
-
-                if (invalidKeys.length > 0) {
-                  this.log(`Iframe source ${vizFrame.src} has unapproved fields: ${invalidKeys.join(', ')}`, 'gatherFragmentsFromFrames');
-                }
-
-                const index = frag.index !== undefined ? frag.index : i;
-                if (usedIndices.has(index)) {
-                  let newIndex = 0;
-                  while (usedIndices.has(newIndex)) newIndex++;
-                  const methods = Object.keys(frag).filter(key => validKeys.includes(key) && key !== 'index');
-                  fragmentList.push({
-                    index: newIndex,
-                    methods
-                  });
-                  usedIndices.add(newIndex);
-                } else {
-                  const methods = Object.keys(frag).filter(key => validKeys.includes(key) && key !== 'index');
-                  fragmentList.push({
-                    index,
-                    methods
-                  });
-                  usedIndices.add(index);
-                }
-              });
-
-              // Sort fragmentList by index
-              fragmentList.sort((a, b) => a.index - b.index);
-
-              vizFrame.fragmentList = fragmentList;
-              this.log(`Extracted and validated ${fragmentList.length} fragments for ${vizFrame.src}`, 'gatherFragmentsFromFrames');
-            } else {
-              this.log(`No "_fragments" object on ${vizFrame.src}!`,'gatherFragmentsFromFrames:loadAndCheckIframe');
-            }
-          } catch (error) {
-            // handles case where the iframe blocks our access, like an external web page we don't have access for.
-            this.log(`Error accessing iframe content for ${vizFrame.src}: ${error.message}`, 'gatherFragmentsFromFrames');
-          } finally {
-            hiddenIframe.remove();
-            resolve();
-          }
-        };
-
-        document.body.appendChild(hiddenIframe);
-      });
-    };
-
-    const fragmentChecks = [];
-    this.vizzyframes.forEach(vizFrame => {
-      // parse fragments
-      fragmentChecks.push(loadAndCheckIframe(vizFrame));
-    });
-
-    await Promise.all(fragmentChecks);
-  }
-
   // Synchronize fragments with slides
   syncFragmentsWithSlides() {
     this.log('Synchronizing fragments with slides', 'syncFragmentsWithSlides');
+    
     const traverseSlides = (slides) => {
       slides.forEach(slide => {
-        // check that we are not on a nested slide parent
+        // Check that we are not on a nested slide parent
         if (slide.innerHTML.includes('section')) {
           // Recursively check nested vertical slides
           const nestedSlides = slide.querySelectorAll('section');
           traverseSlides(nestedSlides);
-          return // complete once nested are parsed
+          return; // Complete once nested are parsed
         }
 
         const indices = this.getVizzyFramesIndices(slide);
@@ -230,7 +199,7 @@ class Plugin {
             const vizFrame = this.vizzyframes[index];
             if (vizFrame.fragmentList) {
               vizFrame.fragmentList.forEach(fragment => {
-                if (fragment.index === -1) {
+                if (fragment.index == -1) {
                   fragmentIndicesMinusOne.push(fragment);
                 } else {
                   fragmentIndices.push({ index: fragment.index, id: vizFrame.id });
@@ -422,32 +391,30 @@ class Plugin {
     if (fragmentIndex < 0) {
       // Handle auto run by running all -1 index fragments on vizzyframes for this slide
       for (let vizzyFrame of vizzyFrames) {
-        await vizzyFrame.waitForLoad();
         this.executeVizzyMethod(fragmentIndex, vizzyFrame, method);
       }
       return
     }
-    
     // parse slide fragments for data-vizzy-fragments.
     const vizzyFragments = slide.querySelectorAll(`.vizzy-fragment[data-fragment-index="${fragmentIndex}"]`);
     if (!vizzyFragments.length) {
       this.log(`No vizzy fragments for fragment index ${fragmentIndex}.`, 'handleFragmentEvent');
       return
     }
+    this.log(`Handling fragment ${fragmentIndex} for slide ${vizzyFrames[0].getIndex('linear')} (${method})`, 'handleFragmentEvent')
     // Loop through fragments, get vizzy id and index, call corresponding fragment method on iframe window
     for (let fragment of vizzyFragments) {
       let id = parseInt(fragment.getAttribute('data-vizzy-id'));
       let index = parseInt(fragment.getAttribute('data-vizzy-index'));
       // Get vizzy frame from id
       let vizzyFrame = vizzyFrames.filter(frame => frame.id == id)[0];
-      await vizzyFrame.waitForLoad();
       this.executeVizzyMethod(index, vizzyFrame, method);
     }
   }
 
   executeVizzyMethod(index, vizzyFrame, method) {
     try {
-      let fragmentObj = vizzyFrame.iframe.contentWindow._fragments;
+      let fragmentObj = vizzyFrame.fragmentsObject;
       let fragmentObjIndex = fragmentObj.findIndex(f => f.index === index);
       if (fragmentObjIndex < 0) {
         this.log(`No entry found for index ${index}.`,'executeVizzyMethod');
@@ -456,7 +423,7 @@ class Plugin {
       if (typeof fragmentObj[fragmentObjIndex][method] === 'function') {
         // run method
         fragmentObj[fragmentObjIndex][method]();
-        this.log(`Executed ${method} for vizzy index ${index}.`, 'executeVizzyMethod');
+        this.log(`Executed ${method} for vizzy index ${index} in position ${fragmentObjIndex}.`, 'executeVizzyMethod');
       } else {
         this.log(`Method "${method}" does not exist for fragment ${index}.`);
       }
