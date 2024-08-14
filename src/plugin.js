@@ -27,6 +27,8 @@ class Plugin {
       ...this.Reveal.getConfig().vizzy
     };
     this.log("Initializing Vizzy-Reveal Plugin", 'init');
+    // inject Vizzy style class into document head
+    this.injectVizzyStyles();
     // Initialize vizzy elements
     await this.preloadVizzyFrames();
     // await this.gatherFragmentsFromFrames();
@@ -36,8 +38,6 @@ class Plugin {
     // Setup ready event listener
     this.Reveal.on('ready', async () => {
       this.handleReady();
-      // inject Vizzy style class into document head
-      this.injectVizzyStyles();
       // Check print mod enabled
       this.checkPrintMode();
     });
@@ -67,21 +67,28 @@ class Plugin {
   
   // Parse Vizzy Frames and Backgrounds
   async preloadVizzyFrames() {
-    this.log("Preloading Vizzy elements", 'preloadVizzyFrames');
+    const rootSlides = document.querySelectorAll('.slides > section');
+
+    this.log(`Preloading Vizzy elements for ${rootSlides.length} slide groups.`, 'preloadVizzyFrames');
     const vizFrameInitPromises = []; // Array to store promises of init calls
+    let slideCount = 0;
+    let vizzyCount = 0;
   
     const parseSlides = (slides) => {
       slides.forEach((slide) => {
-        if (slide.innerHTML.includes('section')) {
-          const nestedSlides = slide.querySelectorAll('section');
+        // Check for nested slide layout
+        const nestedSlides = slide.querySelectorAll('section');
+        if (nestedSlides.length > 0) {
           parseSlides(nestedSlides);
           return;
         }
-  
-        const isBackground = slide.hasAttribute('data-background-vizzy');
+        slideCount += 1;
+
         const slideIndex = this.getSlideIndex(slide);
         this.log(`Parsing slide ${slideIndex.linear}`);
-  
+
+        // Check if the slide has a Vizzy background
+        const isBackground = slide.hasAttribute('data-background-vizzy');
         if (isBackground) {
           const src = slide.getAttribute('data-background-vizzy');
           const vizzyContainer = this.createVizzyElementForBackground(slide);
@@ -90,7 +97,7 @@ class Plugin {
             true,
             vizzyContainer,
             slideIndex,
-            0, 
+            0,
             this.config.devMode,
             this.config.onSlideChangedDelay
           );
@@ -99,41 +106,43 @@ class Plugin {
             this.withTimeout(vizFrame.init(), 10000, `Timeout initializing VizFrame for slide ${slideIndex.linear}`)
           );
           this.vizzyframes.push(vizFrame);
-        } else {
-          const vizzyElements = slide.querySelectorAll('vizzy[data-src]');
-  
-          vizzyElements.forEach((vizzyElement, id) => {
-            const src = vizzyElement.getAttribute('data-src');
-            this.wrapInlineScripts(vizzyElement);
-            if (src) {
-              const vizFrame = new VizFrame(
-                src,
-                false,
-                vizzyElement,
-                slideIndex,
-                id,
-                this.config.devMode,
-                this.config.onSlideChangedDelay
-              );
-              vizFrameInitPromises.push(
-                this.withTimeout(vizFrame.init(), 10000, `Timeout initializing VizFrame for slide ${slideIndex.linear}`)
-              );
-              this.vizzyframes.push(vizFrame);
-            } else {
-              this.log('Skipping vizzy element without data-src attribute', 'preloadVizzyFrames');
-            }
-          });
+          vizzyCount += 1;
         }
+
+        // Check for and initialize foreground Vizzy elements
+        const vizzyElements = slide.querySelectorAll('vizzy[data-src]');
+        vizzyElements.forEach((vizzyElement, id) => {
+          const src = vizzyElement.getAttribute('data-src');
+          this.wrapInlineScripts(vizzyElement);
+          if (src) {
+            const vizFrame = new VizFrame(
+              src,
+              false,
+              vizzyElement,
+              slideIndex,
+              id,
+              this.config.devMode,
+              this.config.onSlideChangedDelay
+            );
+            vizFrameInitPromises.push(
+              this.withTimeout(vizFrame.init(), 10000, `Timeout initializing VizFrame for slide ${slideIndex.linear}`)
+            );
+            this.vizzyframes.push(vizFrame);
+            vizzyCount += 1;
+          } else {
+            this.log('Skipping vizzy element without data-src attribute', 'preloadVizzyFrames');
+          }
+        });
       });
     };
   
-    const rootSlides = document.querySelectorAll('.slides > section');
+    // Parse the slides array
     parseSlides(rootSlides);
-  
+    
     try {
       // Wait for all vizFrame init calls to complete
       await Promise.all(vizFrameInitPromises);
-      this.log("All VizFrames initialized successfully.");
+      this.log(`${vizzyCount} VizFrames initialized for ${slideCount} slides.`);
     } catch (error) {
       this.log(`Error initializing VizFrames: ${error.message}`, 'preloadVizzyFrames');
     }
