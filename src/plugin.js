@@ -191,9 +191,9 @@ class Plugin {
     const traverseSlides = (slides) => {
       slides.forEach(slide => {
         // Check that we are not on a nested slide parent
-        if (slide.innerHTML.includes('section')) {
-          // Recursively check nested vertical slides
-          const nestedSlides = slide.querySelectorAll('section');
+        const nestedSlides = slide.querySelectorAll('section');
+        if (nestedSlides.length > 0) {
+          // Recursively check nested vertical slides          
           traverseSlides(nestedSlides);
           return; // Complete once nested are parsed
         }

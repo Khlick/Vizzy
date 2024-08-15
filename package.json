@@ -1,11 +1,24 @@
 {
   "name": "vizzy-reveal",
-  "version": "1.1.8",
+  "version": "1.1.10",
   "description": "A Reveal.js plugin to integrate and interact with external pages.",
   "keywords": [
+    "revealjs-plugin",
     "reveal.js",
     "reveal-plugins",
-    "presentation"
+    "reveal",
+    "presentation",
+    "interactive",
+    "visualization",
+    "iframes",
+    "embed",
+    "data-visualization",
+    "slides",
+    "custom-plugins",
+    "slideshow",
+    "slide-deck",
+    "interactive-presentation",
+    "plugin"
   ],
   "main": "vizzy.js",
   "module": "vizzy.esm.js",
