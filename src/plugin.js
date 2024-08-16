@@ -38,10 +38,53 @@ class Plugin {
     // Setup ready event listener
     this.Reveal.on('ready', async () => {
       this.handleReady();
-      // Check print mod enabled
-      this.checkPrintMode();
+    });
+    this.Reveal.on('pdf-ready', async () => {
+      // When print mode is activated, let's show all vizzies
+      this.log('Print PDF mode detected', 'Reveal::pdf-ready');
+      await this.showVizzyFrame();
+      // await this.runSlideTransitions(); // TODO, this doesn't work
     });
   }
+
+  async runSlideTransitions() {
+    // internal function for parsing slides
+    const parseSlides = (slides) => {
+      slides.forEach( async (slide) => {
+        if (!this.getVizzyFramesIndices(slide).length) return;
+        let slideNum = this.getSlideLinearIndex(slide);
+        // this.Reveal.showFragmentsIn(slide);
+        let fragments = slide.querySelectorAll('.fragment');
+        // Assume fragments have been synchronized and sorted?
+        this.log(`Slide ${slideNum} has ${fragments.length} fragments.`, 'runSlideTransitions::parseSlides');
+        
+        let maxFragmentIndex = Array.from(fragments).reduce(
+          (max, fragment) => {
+            // Check if fragmentIndex exists, and parse it as an integer
+            let index = fragment.dataset.fragmentIndex ? parseInt(fragment.dataset.fragmentIndex, 10) : NaN;
+            
+            // If index is a valid number, compare it with the current max
+            return !isNaN(index) && index > max ? index : max;
+          },
+          -Infinity
+        );
+        if (maxFragmentIndex < 0) return;
+        // Run fragments until the end
+        for (
+          let fragmentIndex = 0;
+          fragmentIndex <= maxFragmentIndex;
+          fragmentIndex++
+        ) {
+          this.handleFragmentEvent(slide, fragmentIndex, 'activate');
+          await this.delay(this.config.autoTransitionDelay);
+        }
+      });
+    };
+    // parse slide list
+    const rootSlides = this.Reveal.getSlides();
+    // Parse the slides array
+    parseSlides(rootSlides);
+  } 
 
   // IFRAME Management                                                     //
 
@@ -67,7 +110,8 @@ class Plugin {
   
   // Parse Vizzy Frames and Backgrounds
   async preloadVizzyFrames() {
-    const rootSlides = document.querySelectorAll('.slides > section');
+    // const rootSlides = document.querySelectorAll('.slides > section');
+    const rootSlides = this.Reveal.getSlides();
 
     this.log(`Preloading Vizzy elements for ${rootSlides.length} slide groups.`, 'preloadVizzyFrames');
     const vizFrameInitPromises = []; // Array to store promises of init calls
@@ -76,12 +120,7 @@ class Plugin {
   
     const parseSlides = (slides) => {
       slides.forEach((slide) => {
-        // Check for nested slide layout
-        const nestedSlides = slide.querySelectorAll('section');
-        if (nestedSlides.length > 0) {
-          parseSlides(nestedSlides);
-          return;
-        }
+        
         slideCount += 1;
 
         const slideIndex = this.getSlideIndex(slide);
@@ -180,6 +219,8 @@ class Plugin {
         }
       }
     });
+    // Sync reveal
+    this.Reveal.sync();
   }
 
   //  Fragment Management                                                   //
@@ -190,15 +231,8 @@ class Plugin {
     
     const traverseSlides = (slides) => {
       slides.forEach(slide => {
-        // Check that we are not on a nested slide parent
-        const nestedSlides = slide.querySelectorAll('section');
-        if (nestedSlides.length > 0) {
-          // Recursively check nested vertical slides          
-          traverseSlides(nestedSlides);
-          return; // Complete once nested are parsed
-        }
-
         const indices = this.getVizzyFramesIndices(slide);
+        const slideNum = this.getSlideLinearIndex(slide);
 
         if (indices.length > 0) {
           const fragmentIndices = [];
@@ -226,7 +260,7 @@ class Plugin {
             span.setAttribute('data-fragment-index', obj.index);
             span.setAttribute('data-vizzy-index', obj.index);
             slide.appendChild(span);
-            this.log(`Appended fragment span with index ${obj.index} for vizzy id ${obj.id} to slide`, 'syncFragmentsWithSlides');
+            this.log(`Appended fragment span with index ${obj.index} for vizzy id ${obj.id} to slide ${slideNum}`, 'syncFragmentsWithSlides');
           });
 
           // Store fragments with index -1 to run immediately after slide transition
@@ -240,7 +274,8 @@ class Plugin {
       });
     };
 
-    const rootSlides = document.querySelectorAll('.slides > section');
+    // const rootSlides = document.querySelectorAll('.slides > section');
+    const rootSlides = this.Reveal.getSlides(); // Gets all slides linearly
     traverseSlides(rootSlides);
   }
 
@@ -396,7 +431,10 @@ class Plugin {
   // Handle fragment events
   async handleFragmentEvent(slide, fragmentIndex, method) {
     // subset vizzyframes to current slide only
-    const vizzyFrames = this.getVizzyFramesIndices(slide).map(i => this.vizzyframes[i]);
+    const vizzyFrames = this.getVizzyFramesIndices(slide)
+      .map(i => this.vizzyframes[i]);
+    // Exit early if no vizzy frames for this slide.
+    if (!vizzyFrames.length) return;
     if (fragmentIndex < 0) {
       // Handle auto run by running all -1 index fragments on vizzyframes for this slide
       for (let vizzyFrame of vizzyFrames) {
