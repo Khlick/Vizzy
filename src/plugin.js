@@ -36,7 +36,7 @@ class Plugin {
     this.setupKeydownEventListener();
     this.setupFragmentListeners();
     // Setup ready event listener
-    this.Reveal.on('ready', async () => {
+    this.Reveal.on('ready', () => {
       this.handleReady();
     });
     this.Reveal.on('pdf-ready', async () => {
