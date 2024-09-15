@@ -28,18 +28,19 @@ class VizFrame {
         this.toggleSrc(true);
 
         // Wait for the iframe to load and parse fragments
-        await this.waitForLoad();
-        this.log(`Loaded iframe for VizFrame ${this.index.linear}`, 'init');
+        await this.waitForLoad().then(() => {
+          this.log(`Loaded iframe for VizFrame ${this.index.linear}`, 'init');
 
-        await this.parseFragments();
-        this.log(`Parsed fragments for VizFrame ${this.index.linear}`, 'init');
+          this.parseFragments();
+          this.log(`Parsed fragments for VizFrame ${this.index.linear}`, 'init');
 
-        // Unbind the iframe src attribute
-        this.toggleSrc(false);
-        this.setOnLoad(); // Set the main event listener
-        this.observer = this.createMutationObserver();
+          // Unbind the iframe src attribute
+          this.toggleSrc(false);
+          this.setOnLoad(); // Set the main event listener
+          this.observer = this.createMutationObserver();
 
-        this.log(`Initialization complete for VizFrame ${this.index.linear}`, 'init');
+          this.log(`Initialization complete for VizFrame ${this.index.linear}`, 'init');
+        });
         // Resolve the promise indicating successful initialization
         resolve();
       } catch (error) {
@@ -51,6 +52,12 @@ class VizFrame {
   }
 
   createIframe() {
+    // Check if the iframe already exists in the vizzyContainer
+    let existingIframe = this.vizzyContainer.querySelector('iframe');
+    if (existingIframe) {
+        this.log(`Iframe already exists for ${this.src}`, 'createIframe');
+        return existingIframe;
+    }
     const iframe = document.createElement('iframe');
     // Set to data-src to make it compatible with reveal's lazy load. This way,
     // the iframe content won't load until Reveal modifies the iframe attrs.
@@ -154,11 +161,17 @@ class VizFrame {
 
   // Getter for fragmentsObject
   get fragmentsObject() {
-    const iframeWindow = this.iframe.contentWindow || this.iframe.contentDocument;
-    return this.initializefragmentsObjectect(iframeWindow);
+    let fragobj = [];
+    try {
+      fragobj = this.initFragmentsObject();
+    } catch (error) {
+      this.log(`Error retrieving fragments object: ${error.message}`,"get.fragmentsObject")
+    }
+    return fragobj;
   }
 
-  initializefragmentsObjectect(iframeWindow) {
+  initFragmentsObject() {
+    const iframeWindow = this.iframe.contentWindow || this.iframe.contentDocument;
     const inlineCode = this.vizzyContainer.querySelector('span[data-vizzy-fragments]');
     let fragmentsObject = null;
     if (inlineCode) {

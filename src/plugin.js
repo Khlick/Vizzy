@@ -1,5 +1,8 @@
 import VizFrame from './vizFrame.js';
 
+// Create a WeakMap to store Reveal instances
+const revealInstances = new WeakMap();
+
 class Plugin {
   //  Initialization and Reveal Hooks                                       //
   
@@ -15,13 +18,20 @@ class Plugin {
       ...config
     };
     this.vizzyframes = [];
+    this.handleReady = this.handleReady.bind(this);
+    this.showVizzyFrame = this.showVizzyFrame.bind(this);
     // Define custom element 'vizzy' as a block-level element
     document.createElement('vizzy');
   }
 
-  // init
+  // Getter to safely access the Reveal instance using WeakMap
+  get Reveal() {
+    return revealInstances.get(this);
+  }
+
   async init(Reveal) {
-    this.Reveal = Reveal;
+    // Store the Reveal instance in the WeakMap
+    revealInstances.set(this, Reveal);
     this.config = {
       ...this.config,
       ...this.Reveal.getConfig().vizzy
@@ -36,7 +46,7 @@ class Plugin {
     this.setupKeydownEventListener();
     this.setupFragmentListeners();
     // Setup ready event listener
-    this.Reveal.on('ready', () => {
+    Reveal.on('ready', () => {
       this.handleReady();
     });
     this.Reveal.on('pdf-ready', async () => {
@@ -120,7 +130,12 @@ class Plugin {
   
     const parseSlides = (slides) => {
       slides.forEach((slide) => {
-        
+        // Check for nested slide layout
+        const nestedSlides = slide.querySelectorAll('section');
+        if (nestedSlides.length > 0) {
+          parseSlides(nestedSlides);
+          return;
+        }
         slideCount += 1;
 
         const slideIndex = this.getSlideIndex(slide);
@@ -231,6 +246,13 @@ class Plugin {
     
     const traverseSlides = (slides) => {
       slides.forEach(slide => {
+        // Check that we are not on a nested slide parent
+        const nestedSlides = slide.querySelectorAll('section');
+        if (nestedSlides.length > 0) {
+          // Recursively check nested vertical slides          
+          traverseSlides(nestedSlides);
+          return; // Complete once nested are parsed
+        }
         const indices = this.getVizzyFramesIndices(slide);
         const slideNum = this.getSlideLinearIndex(slide);
 
@@ -602,7 +624,7 @@ class Plugin {
 
   // Get slide index including linear index
   getSlideIndex(slide) {
-    const indices = Reveal.getIndices(slide);
+    const indices = this.Reveal.getIndices(slide);
     const linearIndex = this.calculateLinearIndex(indices);
     return {
       h: indices.h,
@@ -612,7 +634,7 @@ class Plugin {
   }
   // Get linear index from slide
   getSlideLinearIndex(slide) {
-    return this.calculateLinearIndex(Reveal.getIndices(slide));
+    return this.calculateLinearIndex(this.Reveal.getIndices(slide));
   }
   // Calculate linear index of a slide
   calculateLinearIndex(indices) {

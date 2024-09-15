@@ -80,7 +80,9 @@
         .style('fill', '#9BE7FF');
     }
 
-    render();
+    window.render = render;
+
+    window.render();
 
     window._fragments = [
       { activate: () => render("science"), reverse: () => render("math"), index: 1 },
