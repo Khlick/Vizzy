@@ -85,8 +85,8 @@ class VizFrame {
   }
 
   async onVizzyLoaded() {
-    const iframeWindow = this.iframe.contentWindow || this.iframe.contentDocument;
-    if (!this.isCrossOrigin()) {
+    const iframeWindow = this.iframe.contentWindow;
+    if (!this.isCrossOrigin() && iframeWindow) {
       try {
         iframeWindow.addEventListener('keydown', (event) => {
           const customEvent = new CustomEvent('iframe-keydown', {
@@ -104,8 +104,6 @@ class VizFrame {
   }
 
   async parseFragments() {
-    const iframeWindow = this.iframe.contentWindow || this.iframe.contentDocument;
-
     if (!this.isCrossOrigin()) {
       // Access the fragments object via the getter
       const fragments = this.fragmentsObject;
@@ -171,14 +169,23 @@ class VizFrame {
   }
 
   initFragmentsObject() {
-    const iframeWindow = this.iframe.contentWindow || this.iframe.contentDocument;
+    // Must be the real Window; contentDocument is not a substitute for inline eval.
+    const iframeWindow = this.iframe.contentWindow;
     const inlineCode = this.vizzyContainer.querySelector('span[data-vizzy-fragments]');
     let fragmentsObject = null;
     if (inlineCode) {
+      if (!iframeWindow) {
+        this.log('Inline fragments skipped: iframe contentWindow not available yet.', 'initializefragmentsObject');
+        this._fragmentsObject = [];
+        return [];
+      }
       this.log("Vizzy has inline code!", 'initializefragmentsObject');
       const code = inlineCode.textContent;
       fragmentsObject = this.executeInlineScript(code, iframeWindow);
-    } else if (iframeWindow._fragments) {
+      if (iframeWindow && iframeWindow._fragments) {
+        this.log('Inline fragments take precedence over window._fragments in the iframe.', 'initializefragmentsObject');
+      }
+    } else if (iframeWindow && iframeWindow._fragments) {
       this.log("Vizzy has _fragments object!", 'initializefragmentsObject');
       fragmentsObject = iframeWindow._fragments;
     }
@@ -222,6 +229,56 @@ class VizFrame {
       this.iframe.addEventListener('load', () => resolve(), {
         once: true
       });
+    });
+  }
+
+  /**
+   * After init we remove iframe src to cooperate with Reveal lazy-loading.
+   * Before running fragment handlers, restore src and wait until the document
+   * is loaded so inline fragment closures see the real iframe window.
+   */
+  ensureIframeLoadedForInteraction() {
+    const dataSrcAttr = this.iframe.getAttribute('data-src');
+    const urlToLoad = dataSrcAttr || this.src;
+    const src = this.iframe.getAttribute('src');
+    const hasLiveSrc = Boolean(src && src !== 'about:blank');
+
+    const isSameOriginDocumentReady = () => {
+      try {
+        const doc = this.iframe.contentDocument;
+        return Boolean(
+          doc && (doc.readyState === 'complete' || doc.readyState === 'interactive')
+        );
+      } catch (e) {
+        return false;
+      }
+    };
+
+    if (hasLiveSrc) {
+      if (isSameOriginDocumentReady()) {
+        return Promise.resolve();
+      }
+      // Cross-origin, or still loading: never miss load (already fired) by only listening.
+      return new Promise((resolve) => {
+        const done = () => resolve();
+        this.iframe.addEventListener('load', done, { once: true });
+        requestAnimationFrame(() => {
+          if (isSameOriginDocumentReady()) {
+            this.iframe.removeEventListener('load', done);
+            done();
+          }
+        });
+      });
+    }
+
+    if (!urlToLoad) {
+      return Promise.resolve();
+    }
+
+    this.show();
+    return new Promise((resolve) => {
+      this.iframe.addEventListener('load', () => resolve(), { once: true });
+      this.iframe.setAttribute('src', urlToLoad);
     });
   }
 
@@ -281,7 +338,7 @@ class VizFrame {
       this.hide();
       setTimeout(() => {
         this.show();
-        const iframeWindow = this.iframe.contentWindow || this.iframe.contentDocument;
+        const iframeWindow = this.iframe.contentWindow;
         try {
           if (iframeWindow) {
             iframeWindow.location.reload();

@@ -1,9 +1,32 @@
+const fs = require('fs');
+const path = require('path');
 const gulp = require('gulp');
 const rollup = require('rollup'); // For bundling JavaScript
 const resolve = require('@rollup/plugin-node-resolve').nodeResolve; // For resolving node modules
 const commonjs = require('@rollup/plugin-commonjs'); // For converting CommonJS modules to ES6
 const { babel: rollupBabel } = require('@rollup/plugin-babel'); // For using Babel with Rollup
 const terser = require('@rollup/plugin-terser'); // For minifying the bundle
+
+const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
+const VIZZY_VERSION_VIRTUAL = '\0vizzy-version';
+
+function vizzyVersionPlugin() {
+  return {
+    name: 'vizzy-version',
+    resolveId(id) {
+      if (id === 'vizzy-version') {
+        return VIZZY_VERSION_VIRTUAL;
+      }
+      return null;
+    },
+    load(id) {
+      if (id === VIZZY_VERSION_VIRTUAL) {
+        return `export const VERSION = ${JSON.stringify(pkg.version)};`;
+      }
+      return null;
+    }
+  };
+}
 
 // Babel configuration for both UMD and ESM builds
 const babelConfig = {
@@ -44,6 +67,7 @@ gulp.task('build:vizzy', () => {
     cache: cache['src/plugin.js'],
     input: 'src/plugin.js',
     plugins: [
+      vizzyVersionPlugin(),
       resolve({
         browser: true,
         preferBuiltins: false,

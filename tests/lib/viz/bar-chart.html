@@ -25,15 +25,30 @@
       { name: 'Emily', math: 59, science: 73, language: 29 }
     ];
 
-    const margin = { top: 10, right: 10, bottom: 30, left: 50 },
+    const margin = { top: 44, right: 10, bottom: 30, left: 56 },
       width = 400 - margin.left - margin.right,
       height = 300 - margin.top - margin.bottom;
+
+    function subjectLabel(subject) {
+      return subject.charAt(0).toUpperCase() + subject.slice(1).toLowerCase();
+    }
 
     const svg = d3.select('body').append('svg')
       .attr('width', width + margin.left + margin.right)
       .attr('height', height + margin.top + margin.bottom)
       .append('g')
       .attr('transform', `translate(${margin.left}, ${margin.top})`);
+
+    const plotTitle = svg.append('text')
+      .attr('class', 'plot-title')
+      .attr('x', width / 2)
+      .attr('y', -14)
+      .attr('text-anchor', 'middle')
+      .style('font-family', 'Raleway')
+      .style('font-size', '1.35em')
+      .style('font-weight', '600')
+      .style('fill', 'black')
+      .text(subjectLabel('math'));
 
     const xScale = d3.scaleBand()
       .domain(data.map(d => d.name))
@@ -63,7 +78,17 @@
       .style("font-family", "Raleway")
       .style("fill", "black");
 
+    svg.append('text')
+      .attr('class', 'y-axis-label')
+      .attr('transform', `translate(${-margin.left + 22}, ${height / 2}) rotate(-90)`)
+      .attr('text-anchor', 'middle')
+      .style('font-family', 'Raleway')
+      .style('font-size', '1.15em')
+      .style('fill', 'black')
+      .text('Score');
+
     function render(subject = 'math') {
+      plotTitle.text(subjectLabel(subject));
       const bars = svg.selectAll('rect').data(data, d => d.name);
 
       bars.exit().remove();

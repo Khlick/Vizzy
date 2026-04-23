@@ -1,4 +1,5 @@
 import VizFrame from './vizFrame.js';
+import { VERSION } from 'vizzy-version';
 
 // Create a WeakMap to store Reveal instances
 const revealInstances = new WeakMap();
@@ -18,8 +19,11 @@ class Plugin {
       ...config
     };
     this.vizzyframes = [];
-    this.handleReady = this.handleReady.bind(this);
     this.showVizzyFrame = this.showVizzyFrame.bind(this);
+    /** @type {WeakMap<HTMLElement, number>} last resolved Vizzy/Reveal fragment step per slide (-2 = unknown) */
+    this._vizzyFragmentCursorBySlide = new WeakMap();
+    /** @type {WeakMap<HTMLElement, boolean>} set when a backward step was handled in fragmenthidden so fragmentshown skips activate */
+    this._vizzyPendingHiddenBackward = new WeakMap();
     // Define custom element 'vizzy' as a block-level element
     document.createElement('vizzy');
   }
@@ -47,7 +51,16 @@ class Plugin {
     this.setupFragmentListeners();
     // Setup ready event listener
     Reveal.on('ready', () => {
-      this.handleReady();
+      this.mountBackgroundVizzies();
+    });
+    // Reveal.sync() recreates all .backgrounds DOM (backgrounds.create), which drops
+    // any custom nodes. Per-slide sync clears .slide-background-content innerHTML.
+    // Re-mount after those operations. See reveal.js sync() and backgrounds.js.
+    this.Reveal.on('sync', () => {
+      queueMicrotask(() => this.mountBackgroundVizzies());
+    });
+    this.Reveal.on('slidesync', () => {
+      queueMicrotask(() => this.mountBackgroundVizzies());
     });
     this.Reveal.on('pdf-ready', async () => {
       // When print mode is activated, let's show all vizzies
@@ -58,9 +71,17 @@ class Plugin {
   }
 
   async runSlideTransitions() {
+    const processedSlides = new WeakSet();
     // internal function for parsing slides
     const parseSlides = (slides) => {
       slides.forEach( async (slide) => {
+        if (processedSlides.has(slide)) return;
+        const nestedSlides = slide.querySelectorAll(':scope > section');
+        if (nestedSlides.length > 0) {
+          parseSlides(nestedSlides);
+          return;
+        }
+        processedSlides.add(slide);
         if (!this.getVizzyFramesIndices(slide).length) return;
         let slideNum = this.getSlideLinearIndex(slide);
         // this.Reveal.showFragmentsIn(slide);
@@ -79,15 +100,18 @@ class Plugin {
           -Infinity
         );
         if (maxFragmentIndex < 0) return;
-        // Run fragments until the end
+        let prev = -1;
         for (
           let fragmentIndex = 0;
           fragmentIndex <= maxFragmentIndex;
           fragmentIndex++
         ) {
-          this.handleFragmentEvent(slide, fragmentIndex, 'activate');
+          await this.runDeactivateAllVizziesForSlideIndex(slide, prev);
+          await this.handleFragmentEvent(slide, fragmentIndex, 'activate');
           await this.delay(this.config.autoTransitionDelay);
+          prev = fragmentIndex;
         }
+        this.setVizzyFragmentCursor(slide, maxFragmentIndex);
       });
     };
     // parse slide list
@@ -100,6 +124,9 @@ class Plugin {
 
   // Locate and wrap vizzy contents:
   wrapInlineScripts(vizzyElement) {
+    if (vizzyElement.querySelector('span[data-vizzy-fragments]')) {
+      return;
+    }
     const scriptText = vizzyElement.textContent.trim();
     if (scriptText.length > 0) {
       // Create a span element to wrap the JavaScript code
@@ -127,15 +154,20 @@ class Plugin {
     const vizFrameInitPromises = []; // Array to store promises of init calls
     let slideCount = 0;
     let vizzyCount = 0;
-  
+    // Reveal.getSlides() returns every section (stack + vertical children). We also
+    // recurse into :scope > section, so each leaf would be processed twice without this.
+    const processedSlides = new WeakSet();
+
     const parseSlides = (slides) => {
       slides.forEach((slide) => {
-        // Check for nested slide layout
-        const nestedSlides = slide.querySelectorAll('section');
+        if (processedSlides.has(slide)) return;
+
+        const nestedSlides = slide.querySelectorAll(':scope > section');
         if (nestedSlides.length > 0) {
           parseSlides(nestedSlides);
           return;
         }
+        processedSlides.add(slide);
         slideCount += 1;
 
         const slideIndex = this.getSlideIndex(slide);
@@ -221,21 +253,32 @@ class Plugin {
     });
   }
   
-  // Handle ready event
-  handleReady() {
+  /**
+   * Move each background vizzy into Reveal's slide background layer.
+   * Must run after backgrounds exist and again after Reveal.sync() / slidesync,
+   * because those paths recreate or clear background DOM.
+   *
+   * Why we do not call Reveal.sync() after mounting: historically that may have
+   * been used to refresh layout or fragment ordering after DOM changes, but
+   * Reveal.sync() runs backgrounds.create() and wipes the entire .backgrounds
+   * tree (see reveal.js and backgrounds.js in hakimel/reveal.js). Use
+   * Reveal.syncSlide(slide) if you need a targeted refresh without destroying
+   * all backgrounds.
+   */
+  mountBackgroundVizzies() {
     this.vizzyframes.forEach(vizFrame => {
-      // Find background frames and inject them into the background contents
-      if (vizFrame.isBackground) {
-        const slide = this.Reveal.getSlide(vizFrame.index.h, vizFrame.index.v);
-        const backgroundContent = slide.slideBackgroundContentElement;
-        if (!backgroundContent.contains(vizFrame.vizzyContainer)) {
-          backgroundContent.appendChild(vizFrame.vizzyContainer);
-          this.log(`Appended vizzy background to slide: ${vizFrame.getIndex('linear')}`, 'handleReady');
-        }
+      if (!vizFrame.isBackground) return;
+      const slide = this.Reveal.getSlide(vizFrame.index.h, vizFrame.index.v);
+      const backgroundContent = this.getSlideBackgroundContent(slide, vizFrame.index);
+      if (!backgroundContent) {
+        this.log(`Unable to resolve background container for slide: ${vizFrame.getIndex('linear')}`, 'mountBackgroundVizzies');
+        return;
+      }
+      if (!backgroundContent.contains(vizFrame.vizzyContainer)) {
+        backgroundContent.appendChild(vizFrame.vizzyContainer);
+        this.log(`Appended vizzy background to slide: ${vizFrame.getIndex('linear')}`, 'mountBackgroundVizzies');
       }
     });
-    // Sync reveal
-    this.Reveal.sync();
   }
 
   //  Fragment Management                                                   //
@@ -243,16 +286,18 @@ class Plugin {
   // Synchronize fragments with slides
   syncFragmentsWithSlides() {
     this.log('Synchronizing fragments with slides', 'syncFragmentsWithSlides');
-    
+    const processedSlides = new WeakSet();
+
     const traverseSlides = (slides) => {
       slides.forEach(slide => {
-        // Check that we are not on a nested slide parent
-        const nestedSlides = slide.querySelectorAll('section');
+        if (processedSlides.has(slide)) return;
+
+        const nestedSlides = slide.querySelectorAll(':scope > section');
         if (nestedSlides.length > 0) {
-          // Recursively check nested vertical slides          
           traverseSlides(nestedSlides);
-          return; // Complete once nested are parsed
+          return;
         }
+        processedSlides.add(slide);
         const indices = this.getVizzyFramesIndices(slide);
         const slideNum = this.getSlideLinearIndex(slide);
 
@@ -303,29 +348,63 @@ class Plugin {
 
   // Set up fragment listeners
   setupFragmentListeners() {
-    this.Reveal.on('fragmentshown', event => {
+    this.Reveal.on('fragmentshown', async event => {
       this.log("Fragment Shown", 'onFragmentShown');
-      const slide = event.fragment.closest('section');
+      const fragmentEl = event.fragment || event.detail?.fragment;
+      if (!fragmentEl) return;
+      const slide = fragmentEl.closest('section');
+      if (!slide) return;
 
-      this.checkFragmentDeactivated("shown", slide)
-        .then(this.log("Deactivate checked!", "fragmentshown"));
-      const fragmentIndex = parseInt(
-        slide.getAttribute("data-fragment")
-      );
-      this.handleFragmentEvent(slide, fragmentIndex, 'activate');
-      
+      if (this._vizzyPendingHiddenBackward.get(slide)) {
+        this._vizzyPendingHiddenBackward.delete(slide);
+        const shownIdx = this.getFragmentIndexFromFragment(fragmentEl, slide);
+        if (!Number.isNaN(shownIdx)) {
+          this.setVizzyFragmentCursor(slide, shownIdx);
+        }
+        this.log("Skipped activate after backward (handled in fragmenthidden).", "onFragmentShown");
+        return;
+      }
+
+      const arrivingIdx = this.getFragmentIndexFromFragment(fragmentEl, slide);
+      if (Number.isNaN(arrivingIdx)) return;
+
+      const stored = this.getVizzyFragmentCursor(slide);
+      const oldIdx = stored === -2 ? -1 : stored;
+      const forward = arrivingIdx > oldIdx || (oldIdx === -1 && arrivingIdx >= 0);
+
+      if (forward) {
+        await this.runDeactivateAllVizziesForSlideIndex(slide, oldIdx);
+        await this.handleFragmentEvent(slide, arrivingIdx, 'activate');
+        this.setVizzyFragmentCursor(slide, arrivingIdx);
+        this.log(`Forward fragment step to ${arrivingIdx} (from ${oldIdx}).`, "onFragmentShown");
+      } else if (arrivingIdx === oldIdx) {
+        this.log(`No Vizzy forward step (arriving ${arrivingIdx} equals cursor).`, "onFragmentShown");
+      } else {
+        this.setVizzyFragmentCursor(slide, arrivingIdx);
+        this.log(`Backward fragmentshown to ${arrivingIdx}; activate skipped.`, "onFragmentShown");
+      }
     });
 
-    this.Reveal.on('fragmenthidden', event => {
+    this.Reveal.on('fragmenthidden', async event => {
       this.log("Fragment Hidden", 'onFragmentHidden');
-      const slide = event.fragment.closest('section');
+      const fragmentEl = event.fragment || event.detail?.fragment;
+      if (!fragmentEl) return;
+      const slide = fragmentEl.closest('section');
+      if (!slide) return;
 
-      this.checkFragmentDeactivated("hidden", slide)
-        .then(this.log("Deactivate checked!", "fragmentshown"));
-      const fragmentIndex = parseInt(
-        slide.getAttribute("data-fragment")
-      );
-      this.handleFragmentEvent(slide, fragmentIndex + 1, 'reverse');
+      const leavingIdx = this.getFragmentIndexFromFragment(fragmentEl, slide);
+      if (Number.isNaN(leavingIdx)) return;
+
+      const newIdxRaw = parseInt(slide.dataset.fragment, 10);
+      const newIdx = Number.isNaN(newIdxRaw) ? -1 : newIdxRaw;
+
+      if (leavingIdx > newIdx) {
+        this._vizzyPendingHiddenBackward.set(slide, true);
+        await this.runDeactivateAllVizziesForSlideIndex(slide, leavingIdx);
+        await this.handleFragmentEvent(slide, leavingIdx, 'reverse');
+        this.setVizzyFragmentCursor(slide, newIdx);
+        this.log(`Backward fragment step from ${leavingIdx} to ${newIdx}.`, "onFragmentHidden");
+      }
     });
 
     this.Reveal.on('slidechanged', async event => {
@@ -335,6 +414,10 @@ class Plugin {
       
       await this.waitForClass(slide, 'present', this.config.autoTransitionDelay);
 
+      const ds = slide.dataset.fragment;
+      const parsed = ds === undefined || ds === '' ? -1 : parseInt(ds, 10);
+      this.setVizzyFragmentCursor(slide, Number.isNaN(parsed) ? -1 : parsed);
+
       this.log("Checking autorun fragments", "onSlideChanged");
       
       // Run any vizzy _fragments with index -1
@@ -342,8 +425,9 @@ class Plugin {
         const immediateFragments = JSON.parse(slide.dataset.vizzyImmediateFragments);
         for (const fragment of immediateFragments) {
           await this.delay(this.config.autoTransitionDelay);
-          this.handleFragmentEvent(slide, fragment.index, 'activate');
+          await this.handleFragmentEvent(slide, fragment.index, 'activate');
         }
+        this.setVizzyFragmentCursor(slide, -1);
       }
       this.log("Checking to run up to last fragment.", "onSlideChanged");
       if (this.config.autoRunTransitions && slide.hasAttribute('data-fragment')) {
@@ -355,16 +439,54 @@ class Plugin {
           // moving forward, don't run any loops
           return
         }
+        let prev = -1;
         for (
           let fragmentIndex = 0;
           fragmentIndex <= slideFragmentState;
           fragmentIndex++
         ) {
-          this.handleFragmentEvent(slide, fragmentIndex, 'activate');
+          await this.runDeactivateAllVizziesForSlideIndex(slide, prev);
+          await this.handleFragmentEvent(slide, fragmentIndex, 'activate');
           await this.delay(this.config.autoTransitionDelay);
+          prev = fragmentIndex;
         }
+        this.setVizzyFragmentCursor(slide, slideFragmentState);
       }
     });
+  }
+
+  getVizzyFragmentCursor(slide) {
+    if (!this._vizzyFragmentCursorBySlide.has(slide)) {
+      return -2;
+    }
+    return this._vizzyFragmentCursorBySlide.get(slide);
+  }
+
+  setVizzyFragmentCursor(slide, index) {
+    this._vizzyFragmentCursorBySlide.set(slide, index);
+  }
+
+  getFragmentIndexFromFragment(fragmentEl, slide) {
+    const eventIndex = parseInt(
+      fragmentEl?.dataset?.fragmentIndex || fragmentEl?.getAttribute('data-fragment-index'),
+      10
+    );
+    if (!Number.isNaN(eventIndex)) {
+      return eventIndex;
+    }
+    const slideIndex = parseInt(slide?.dataset?.fragment, 10);
+    if (!Number.isNaN(slideIndex)) {
+      return slideIndex;
+    }
+    return NaN;
+  }
+
+  async runDeactivateAllVizziesForSlideIndex(slide, index) {
+    const vizzyFrames = this.getVizzyFramesIndices(slide)
+      .map(i => this.vizzyframes[i]);
+    for (const vizzyFrame of vizzyFrames) {
+      await this.executeVizzyMethod(index, vizzyFrame, 'deactivate');
+    }
   }
 
   waitForClass(element, className, timeout) {
@@ -406,48 +528,31 @@ class Plugin {
     });
   }
 
-  async checkFragmentDeactivated(eventType, currentSlide) {
-    // triggered from fragment[shown|hidden]
-    let offset = eventType === "shown" ? -1 : 1;
-    let currentIndex = parseInt(currentSlide.dataset.fragment);
-    
-    let previousFragment = Array
-      .from(
-        currentSlide
-          .querySelectorAll(
-            `.vizzy-fragment[data-fragment-index="${currentIndex + offset}"]`
-        )
-    );
-    
-    let previousFragmentLength = previousFragment.length;
-    if (!previousFragmentLength) {
-      this.log("No previous fragments to check for deactivation!", "checkFragmentDeactivated");
-      return
+  getSlideBackgroundContent(slide, slideIndex) {
+    if (slide && slide.slideBackgroundContentElement) {
+      return slide.slideBackgroundContentElement;
     }
 
-    const vizzyFrames = this
-      .getVizzyFramesIndices(currentSlide)
-      .map(i => this.vizzyframes[i]);
-    if (!vizzyFrames.length) {
-      this.log(`No vizzy frames for slide ${this.getSlideLinearIndex(slide)}.`, "checkFragmentDeactivate");
-      return
+    if (this.Reveal && typeof this.Reveal.getSlideBackground === 'function') {
+      const background = this.Reveal.getSlideBackground(slideIndex.h, slideIndex.v);
+      if (background) {
+        return background.querySelector('.slide-background-content') || background;
+      }
     }
-    let tests = [];
-    for (
-      let fragmentIndex = 0;
-      fragmentIndex < previousFragmentLength;
-      fragmentIndex++
-    ) {
-      let fragment = previousFragment[fragmentIndex];
-      let id = parseInt(fragment.getAttribute('data-vizzy-id'));
-      let index = parseInt(fragment.getAttribute('data-vizzy-index'));
-      // get vizzy frame from id
-      let vizzyFrame = vizzyFrames.filter(frame => frame.id == id)[0];
-      this.executeVizzyMethod(index, vizzyFrame, 'deactivate');
-      await this.delay(this.config.autoTransitionDelay * 2);
-      tests.push(true);
+
+    return null;
+  }
+
+  getFragmentIndexFromEvent(event, slide) {
+    const fragmentEl = event.fragment || event.detail?.fragment;
+    if (fragmentEl) {
+      return this.getFragmentIndexFromFragment(fragmentEl, slide);
     }
-    return Promise.all(tests);
+    const slideIndex = parseInt(slide?.dataset?.fragment, 10);
+    if (!Number.isNaN(slideIndex)) {
+      return slideIndex;
+    }
+    return -1;
   }
 
   // Handle fragment events
@@ -460,7 +565,7 @@ class Plugin {
     if (fragmentIndex < 0) {
       // Handle auto run by running all -1 index fragments on vizzyframes for this slide
       for (let vizzyFrame of vizzyFrames) {
-        this.executeVizzyMethod(fragmentIndex, vizzyFrame, method);
+        await this.executeVizzyMethod(fragmentIndex, vizzyFrame, method);
       }
       return
     }
@@ -477,21 +582,25 @@ class Plugin {
       let index = parseInt(fragment.getAttribute('data-vizzy-index'));
       // Get vizzy frame from id
       let vizzyFrame = vizzyFrames.filter(frame => frame.id == id)[0];
-      this.executeVizzyMethod(index, vizzyFrame, method);
+      await this.executeVizzyMethod(index, vizzyFrame, method);
     }
   }
 
-  executeVizzyMethod(index, vizzyFrame, method) {
+  async executeVizzyMethod(index, vizzyFrame, method) {
     try {
+      if (method === 'reverse' && index < 0) {
+        return;
+      }
+      await vizzyFrame.ensureIframeLoadedForInteraction();
       let fragmentObj = vizzyFrame.fragmentsObject;
       let fragmentObjIndex = fragmentObj.findIndex(f => f.index === index);
       if (fragmentObjIndex < 0) {
         this.log(`No entry found for index ${index}.`,'executeVizzyMethod');
         return
       }
-      if (typeof fragmentObj[fragmentObjIndex][method] === 'function') {
-        // run method
-        fragmentObj[fragmentObjIndex][method]();
+      const fn = fragmentObj[fragmentObjIndex][method];
+      if (typeof fn === 'function') {
+        await Promise.resolve(fn());
         this.log(`Executed ${method} for vizzy index ${index} in position ${fragmentObjIndex}.`, 'executeVizzyMethod');
       } else {
         this.log(`Method "${method}" does not exist for fragment ${index}.`);
@@ -513,7 +622,7 @@ class Plugin {
         // Assuming the parent function is at the third position in the stack trace
         id = stack[2] ? stack[2].trim().split(' ')[1] : null;
       }
-      console.log(`[Vizzy${id ? ":" + id : ""}] ${message}`);
+      console.log(`[Vizzy v${VERSION}${id ? ":" + id : ""}] ${message}`);
     }
   }
 
@@ -600,15 +709,18 @@ class Plugin {
       let slide = this.getSlideFromVizzy(vizzy);
       let fragments = Array
         .from(slide.querySelectorAll(".vizzy-fragment"))
-        .sort((a,b) => parseInt(b.dataset.vizzyIndex) - parseInt(a.dataset.vizzyIndex));
+        .sort((a, b) => parseInt(a.dataset.vizzyIndex, 10) - parseInt(b.dataset.vizzyIndex, 10));
       let nFragments = fragments.length;
       if (!nFragments) {
         continue
       }
+      let prev = -1;
       for (let fragment of fragments) {
-        let index = parseInt(fragment.getAttribute('data-vizzy-index'));
-        this.executeVizzyMethod(index, vizzy, 'activate');
+        let index = parseInt(fragment.getAttribute('data-vizzy-index'), 10);
+        await this.executeVizzyMethod(prev, vizzy, 'deactivate');
+        await this.executeVizzyMethod(index, vizzy, 'activate');
         await this.delay(this.config.autoTransitionDelay);
+        prev = index;
       }
     }
   }
@@ -673,6 +785,13 @@ class Plugin {
         border: 0;
         overflow: hidden;
       }
+      .reveal .slide-background-content > vizzy {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
     `;
     document.head.appendChild(style);
     this.log('Injected default CSS styles for vizzy elements', 'injectVizzyStyles');
@@ -709,4 +828,5 @@ class Plugin {
 } // PLUGIN END
 
 const Vizzy = new Plugin();
+Vizzy.version = VERSION;
 export default Vizzy;

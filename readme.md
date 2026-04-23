@@ -1,12 +1,31 @@
-# Vizzy Plugin for Reveal.js
+# Vizzy — Reveal.js iframe and fragment bridge
 
-Vizzy is a plugin for Reveal.js that allows you to embed iframes and interact with external content seamlessly within your presentations. 
+Vizzy is a [Reveal.js](https://revealjs.com/) plugin that embeds external pages in `<vizzy>` elements and wires Reveal’s **fragment** events to optional callbacks inside each iframe (`activate`, `reverse`, `deactivate`). It is distributed as UMD and ESM builds.
+
+## Reveal.js compatibility
+
+Vizzy is exercised against **Reveal.js 4.x**, **5.x**, and **6.x** (including **6.0.1**). The plugin listens for `fragmentshown`, `fragmenthidden`, and `slidechanged` and reads `event.fragment` / `event.detail.fragment` where needed so it works across these major versions.
+
+## How Reveal shows and hides fragments (and why Vizzy orders callbacks this way)
+
+Reveal’s fragment controller (for example in `js/controllers/fragments.js` in the Reveal source) updates the DOM when the fragment index changes: it toggles `.visible` / `.current-fragment` on fragment elements, updates `slide.dataset.fragment` (clamped between **-1** and the highest fragment index), then dispatches events. In current Reveal, **`fragmenthidden` is fired before `fragmentshown`** when both apply in one step.
+
+Vizzy mirrors that ordering for **backward** navigation: on `fragmenthidden`, when the leaving fragment index is greater than the new slide fragment index, Vizzy runs **`deactivate`** on the **leaving** index for every Vizzy on the slide, then **`reverse`** on that same index. It sets an internal flag so the following **`fragmentshown`** does **not** call **`activate`** on the arriving index (Reveal still shows the fragment in the DOM; Vizzy deliberately does not re-run `activate` when stepping backward).
+
+For **forward** navigation, on `fragmentshown`, Vizzy runs **`deactivate`** on the **previous** cursor index for all Vizzies on the slide, then **`activate`** on the **arriving** index. **`deactivate`** may return a `Promise`; Vizzy **awaits** it before continuing.
+
+### Index `-1` (auto-run / pre-step)
+
+- **`reverse` is never called** for fragment indices **&lt; 0** (including `-1`).
+- If you define **`deactivate`** on the **`-1`** entry, it runs when the deck **advances from the implicit “before first fragment” state into fragment `0`**: the first forward `fragmentshown` treats the previous index as **`-1`**, so Vizzy calls **`deactivate(-1)`** and then **`activate(0)`**. You do **not** need a dummy Reveal fragment at index `0` solely for that behavior; Vizzy performs the `-1` deactivation explicitly.
+- **`activate(-1)`** still runs for immediate / auto-run steps (for example after `slidechanged` when `vizzyImmediateFragments` is set).
 
 ## Features
 
-- Embed external web pages within your slides.
-- Automatically manage iframe loading and transitions.
-- Support for fragments to handle step-by-step animations and transitions.
+- Embed external pages with `data-src` on `<vizzy>`; optional `data-*` attributes are copied to the generated iframe.
+- Lazy loading aligned with Reveal’s slide visibility where applicable.
+- **Fragments**: map Reveal `data-fragment-index` steps to iframe logic via `window._fragments` or inline JSON on `<vizzy>`.
+- **Background slides**: Vizzies in slide backgrounds are mounted and kept across `Reveal.sync()` where possible.
 
 ## Motivation
 
@@ -14,23 +33,20 @@ While a graduate student at UCLA, I had the opportunity to teach statistics to o
 
 I loved Reveal.js and had been experimenting with embedding Shiny apps in the presentations, but that was too much work. We turned to D3.js and initially wrote scripts for our visualizations directly in the presentation, but this also became cumbersome and difficult to share and maintain. Guillaume discovered the plugin by Joscha Legewie ([reveal.js-d3js-plugin](https://github.com/jlegewie/reveal.js-d3js-plugin)) and started developing his own version ([reveal.js-d3](https://github.com/gcalmettes/reveal.js-d3)). This allowed us to work on visualizations independently and place them in the presentation cleanly.
 
-Fast-forward 7 years, I found myself teaching again, this time as an adjunct professor at California State University, Los Angeles, teaching Experimental Methods to Mechanical Engineering students and Mechanisms of Neural Plasticity to Kinesiology students. Realizing that Reveal.js had evolved, I needed the same functionality but found several issues that required constant patching and tweaking. Eventually, I set out to create Vizzy.
+Fast-forward several years, I found myself teaching again, this time as an adjunct professor at California State University, Los Angeles, teaching Experimental Methods to Mechanical Engineering students and Mechanisms of Neural Plasticity to Kinesiology students. Realizing that Reveal.js had evolved, I needed the same functionality but found several issues that required constant patching and tweaking. Eventually, I set out to create Vizzy.
 
-Vizzy is based on the reveal.js-d3 and reveal.js-d3js plugins, incorporating similar functionality but with key differences in syntax and under-the-hood approaches. Vizzy works with both Reveal.js 4 and 5, integrates with Reveal's lazy-load mechanisms, allows for further customization of the iframe container, and better integrates with the fragments mechanism to allow for auto-running fragments when traversing backwards through slide decks. Vizzy is available in both module and non-module versions. Future directions include a mechanism to control fragments in the Vizzy source from the host and properly registering Vizzy elements. This first version is primarily a proof of concept and an upgrade from previous plugins, and I hope to optimize it further and gather insights from other developers.
+Vizzy is based on the reveal.js-d3 and reveal.js-d3js plugins, incorporating similar functionality but with key differences in syntax and under-the-hood approaches. Vizzy is available in both module and non-module versions.
 
 ## Installation
-
-Install Vizzy via npm:
 
 ```sh
 npm install vizzy-reveal
 ```
 
+
 ## Usage
 
-### Basic Setup
-
-Add the Vizzy plugin to your Reveal.js presentation:
+### Basic setup
 
 ```html
 <!DOCTYPE html>
@@ -46,8 +62,8 @@ Add the Vizzy plugin to your Reveal.js presentation:
   <div class="reveal">
     <div class="slides">
       <section>
-        <h2>A Vizzy Slide!</h2>
-        <p class="fragment" data-fragment-index="1">With fragments!</p>
+        <h2>A Vizzy slide</h2>
+        <p class="fragment" data-fragment-index="0">First step</p>
         <vizzy data-src="lib/visualizations/collision-detection.html" style="height:600px;"></vizzy>
       </section>
     </div>
@@ -61,165 +77,87 @@ Add the Vizzy plugin to your Reveal.js presentation:
 </html>
 ```
 
-### Adding Vizzy Elements
+### `<vizzy>` element
 
-You can add Vizzy elements to your slides using the `<vizzy>` tag. Set the `data-src` attribute to the URL of the content you want to embed. Customize the vizzy element like you would a `div` element, adding classes or styles.
+Set `data-src` to the page URL. Style the host like any block element. Attributes prefixed with `data-` on `<vizzy>` are applied to the iframe (for example `data-scrolling="no"`).
 
-```html
-<section>
-  <h2>Vizzy with Fragments</h2>
-  <vizzy data-src="lib/visualizations/collision-detection.html" style="height:600px;"></vizzy>
-</section>
-```
+The plugin injects baseline CSS so the iframe fills the `<vizzy>` host and background vizzies fill the background container.
 
-The plugin will inject the following css into the document head (future iterations will use the shadow dom). You may use inline styles, or custom css classes/ids to restyle your elements. The main point here is to ensure the embedded iframe fills the vizzy element. Typically, you might define a specific size for the vizzy element, or place it in an element whose dimensions are calculated/static. Note the css selectors are specific enough to override reveal's default iframe styling, but not so specific to make it impossible to generalize your own css.
+### Fragments inside the iframe (`window._fragments`)
 
-```html
-<style>
-  vizzy {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 100%;
-    height: 100%;
-    margin: 0 auto;
-    overflow: hidden;
-  }
-  .reveal vizzy iframe {
-    width: 100%;
-    height: 100%;
-    max-width: 100%;
-    max-height:100%;
-    z-index: 1;
-    border: 0;
-    overflow: hidden;
-  }
-</style>
-```
+In the embedded document, define **`window._fragments`** as an array of objects:
 
-You may add custom inline styles or set other attributes directly on the embedded iframe by using the `data-` prefix on the vizzy element. For example, to set the `scrolling` attribute on the embedded iframe to `'no'`, you may use `data-scrolling="no"` on the vizzy element.
+| Field        | Required | Purpose |
+|-------------|----------|---------|
+| `index`     | Yes      | Matches Reveal’s `data-fragment-index` on the generated `.vizzy-fragment` span for that slide. Use **`-1`** for a step that runs when the slide becomes current (before fragment `0`). |
+| `activate`  | Yes      | Called when advancing **to** this index (after `deactivate` of the previous index on forward steps). |
+| `reverse`   | No       | Called when stepping **backward** from this index. **Not used for `index < 0`.** |
+| `deactivate`| No       | Called when leaving this index on a **forward** step, or as part of backward handling for the **leaving** index. May be sync or async (`Promise`). |
 
-```html
-<section>
-  <h2>Embed a Website in an Iframe</h2>
-  <div class="grid-container" style="grid-template-columns: 1fr 1fr;">
-    <div class="grid-item" style="width:400px;">
-      <vizzy data-src="https://khrisgriffis.com" style="height:428px;" data-scrolling="no"></vizzy>
-    </div>
-    <div class="grid-item" style="width:400px;">
-      <vizzy data-src="https://khrisgriffis.com" style="height:428px;" ></vizzy>
-    </div>
-  </div>
-</section>
-```
-
-
-### Using Fragments with Vizzy
-
-You can use fragments to create step-by-step transitions within your Vizzy iframes. Define the `_fragments` array in your iframe content. _Note: You may also define the _fragments object in the global scope with `var`._
+Example:
 
 ```html
 <!-- collision-detection.html -->
 <script>
   window._fragments = [
     {
-      activate: () => {
-        console.log("Fragment 1 activated");
-        // Do something to animation
-      },
-      reverse: () => {
-        console.log("Fragment 1 reversed");
-        // Undo something in animation
-      },
-      index: 0
+      index: -1,
+      activate: () => { console.log('Slide visible, pre-fragment'); },
+      deactivate: () => { console.log('Leaving -1 before fragment 0'); }
     },
     {
-      activate: () => {
-        console.log("Fragment 2 activated");
-        // Do another thing in animation
-      },
-      reverse: () => {
-        console.log("Fragment 2 reversed");
-        // Undo another thing in animation
-      },
-      index: 1
+      index: 0,
+      activate: () => { console.log('Fragment 0'); },
+      reverse: () => { console.log('Undo 0'); },
+      deactivate: () => { console.log('Cleanup before next index'); }
+    },
+    {
+      index: 1,
+      activate: () => { console.log('Fragment 1'); },
+      reverse: () => { console.log('Undo 1'); }
     }
   ];
 </script>
 ```
 
-### Advanced Fragments with Vizzy
+### Fragments inline on `<vizzy>`
 
-In addition to defining the `_fragments` array directly within the iframe content, Vizzy allows you to define fragments directly within the `<vizzy>` element. This advanced feature provides greater flexibility by enabling the dynamic creation of fragments, which can interact with the iframe's content.
-
-#### Defining Fragments in the Vizzy Element
-
-When defining fragments directly within the `<vizzy>` element, ensure the following:
-
-1. **Return an Array of Objects:** The code must return an array of objects where each object contains `activate` (required), `reverse` (optional), `deactivate` (optional), and `index` (required) fields. These fields should align with the usage of the `window._fragments` array. _Note: When defining the `index`, use `-1` to create an auto-run step from within the `<vizzy>` element._
-
-2. **Accessing the Content Window:** The iframe's `contentWindow` is passed automatically as `window`, allowing you to access any functions or objects defined within the iframe. This enables seamless interaction between the fragment definitions and the iframe's content.
-
-#### Example Usage
-
-Here's an example of how to define fragments directly within the `<vizzy>` element:
+You can embed a JavaScript array expression as text content inside `<vizzy>` (the plugin evaluates it with the iframe’s `contentWindow` as `window`). The shape matches `_fragments` (`activate`, optional `reverse` / `deactivate`, `index`).
 
 ```html
 <vizzy data-src="lib/viz/bar-chart.html" class="grid-item">
   [
-    { 
-      activate: () => window.render("math"), 
-      reverse: () => window.render("language"), 
-      index: 1 
-    },
-    { 
-      activate: () => window.render("science"), 
-      reverse: () => window.render("math"),
-      index: 2 
+    {
+      activate: () => window.render("math"),
+      reverse: () => window.render("language"),
+      index: 1
     }
   ]
 </vizzy>
 ```
 
-In this example:
-
-- **Activate and Reverse Functions:** The `activate` and `reverse` functions are executed within the context of the iframe's `contentWindow`, allowing you to directly call functions like `window.render()` which are defined within the iframe's content.
-- **Indexing:** Each fragment is indexed similarly to how it would be within the `_fragments` array. The index determines the order in which the fragments are activated as the user progresses through the slide.
-
-#### Key Considerations
-
-- **Encapsulation:** By defining fragments in the `<vizzy>` element, you encapsulate the fragment logic within the element itself, leading to a more modular and maintainable codebase.
-- **Error Handling:** If the fragment definition contains errors, or if the `contentWindow` is not accessible, Vizzy will log the error but continue to operate without crashing.
-
-This feature is particularly useful for advanced users who need dynamic fragment creation or who want to keep their fragment logic closely tied to specific instances of the `<vizzy>` element.
+Treat inline fragment code like any other dynamically evaluated script: only use it with trusted content.
 
 ## Configuration
-
-You can configure Vizzy by passing options to the plugin during the `Reveal.initialize()` method, as shown below.
 
 ```javascript
 Reveal.initialize({
   plugins: [ Vizzy ],
   vizzy: {
-    autoRunTransitions: true,  // Automatically run transitions
-    autoTransitionDelay: 100,  // Delay between transitions (ms)
-    devMode: false,            // Enable development mode
-    onSlideChangedDelay: 0     // Delay before handling slide change (ms)
+    autoRunTransitions: true,
+    autoTransitionDelay: 100,
+    devMode: false,
+    onSlideChangedDelay: 0
   }
 });
 ```
 
-### Options
-
-| Option               | Type    | Default | Description                                                                                                                                 |
-|----------------------|---------|---------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| `autoRunTransitions` | Boolean | `false` | If set to `true`, Vizzy will automatically run all transitions on a slide when navigating backwards and when in `print` mode.                                         |
-| `autoTransitionDelay`| Number  | `100`   | The delay in milliseconds between each automatic transition. This delay helps to control the speed of the transitions.                       |
-| `devMode`            | Boolean | `false` | Enables development mode which provides additional logging and debugging information in the console.                                          |
-| `onSlideChangedDelay`| Number  | `0`     | The delay in milliseconds before handling a slide change. This delay can be useful for ensuring that all content is fully loaded before running transitions on vizzies. |
-
-These configuration options give you control over the behavior and performance of Vizzy in your Reveal.js presentations. Adjust the settings according to your needs to create a smooth and interactive presentation experience.
-
+| Option                 | Type    | Default | Description |
+|------------------------|---------|---------|-------------|
+| `autoRunTransitions` | Boolean | `false` | When `true`, after navigating to a slide that already has a positive `data-fragment`, Vizzy replays `activate` from `0` through that index (each step preceded by `deactivate` of the previous index). Also used in print-style flows where applicable. |
+| `autoTransitionDelay`  | Number  | `100`   | Delay between automatic replay steps (ms). |
+| `devMode`              | Boolean | `false` | Extra console logging. |
+| `onSlideChangedDelay`  | Number  | `0`     | Delay before slide-change handling (ms). |
 
 ## License
 
