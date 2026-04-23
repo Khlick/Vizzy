@@ -102,7 +102,7 @@ jobs:
     environment: publish-rules
     
     permissions:
-      id-token: write
+      id-token: write # required for npm Trusted Publishing (OIDC) + --provenance
       contents: read
 
     steps:
@@ -129,8 +129,8 @@ jobs:
       - name: Print PUBLISH_ENABLED
         run: echo "PUBLISH_ENABLED ${{ vars.PUBLISH_ENABLED && 'true' || 'false' }}"
 
+      # Authenticates with npm via Trusted Publisher (OIDC). Do not set
+      # NODE_AUTH_TOKEN / NPM_TOKEN or the CLI prefers the token over OIDC.
       - name: Publish to npm
         if: ${{ vars.PUBLISH_ENABLED }}
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
